@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MASARAK — Jetpack Compose Components & Libraries</title>
+<style>
+:root{
+  --navy:#0C0D45;
+  --teal:#00696E;
+  --aqua:#75CBD1;
+  --paper:#F8F7F4;
+  --ink:#1E1E2E;
+  --muted:#626673;
+  --line:#D8D7D2;
+  --soft:#F1F3F7;
+  --teal-soft:#EAF6F6;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--paper);
+  font-family:Arial,Helvetica,sans-serif;
+  color:var(--ink);
+  line-height:1.45;
+}
+.page{
+  max-width:1120px;
+  margin:auto;
+  padding:34px 24px 60px;
+}
+.hero{
+  background:var(--navy);
+  color:#fff;
+  border-radius:24px;
+  padding:28px 30px;
+}
+.hero small{
+  display:block;
+  color:var(--aqua);
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+.hero h1{
+  margin:7px 0 7px;
+  font-size:31px;
+  line-height:1.1;
+}
+.hero p{
+  margin:0;
+  max-width:860px;
+  color:#E9EAF2;
+  font-size:13px;
+}
+.section{margin-top:26px}
+.section h2{
+  margin:0 0 6px;
+  color:var(--navy);
+  font-size:22px;
+}
+.section>p{
+  margin:0 0 13px;
+  color:var(--muted);
+  font-size:12px;
+  max-width:900px;
+}
+.table-wrap{
+  overflow:auto;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:16px;
+}
+table{
+  width:100%;
+  border-collapse:collapse;
+  min-width:900px;
+}
+th,td{
+  padding:11px 12px;
+  border-bottom:1px solid #ECEBE7;
+  text-align:left;
+  vertical-align:top;
+}
+th{
+  background:#F0F2F6;
+  color:var(--navy);
+  font-size:10.5px;
+  text-transform:uppercase;
+  letter-spacing:.05em;
+}
+td{
+  font-size:11px;
+}
+td:first-child{
+  font-weight:800;
+  color:var(--navy);
+  white-space:nowrap;
+}
+tr:last-child td{border-bottom:0}
+code{
+  font-family:ui-monospace,SFMono-Regular,Consolas,monospace;
+  background:#F2F3F6;
+  color:#393A6D;
+  border-radius:5px;
+  padding:2px 5px;
+}
+.cards{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:12px;
+}
+.card{
+  background:#fff;
+  border:1px solid var(--line);
+  border-top:4px solid var(--teal);
+  border-radius:15px;
+  padding:15px;
+}
+.card h3{
+  margin:0 0 5px;
+  color:var(--navy);
+  font-size:14px;
+}
+.card p{
+  margin:0;
+  color:var(--muted);
+  font-size:11px;
+}
+.note{
+  margin-top:12px;
+  background:var(--teal-soft);
+  border-left:4px solid var(--teal);
+  border-radius:0 10px 10px 0;
+  padding:11px 13px;
+  color:#2F575A;
+  font-size:10.8px;
+}
+.footer{
+  margin-top:28px;
+  border-top:2px solid var(--navy);
+  padding-top:10px;
+  text-align:center;
+  color:var(--muted);
+  font-size:9px;
+}
+@media(max-width:780px){
+  .cards{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+<section class="hero">
+  <small>MASARAK · Milestone 2</small>
+  <h1>Jetpack Compose Components & Libraries</h1>
+  <p>
+    Planned Jetpack Compose components and libraries for the future implementation of MASARAK,
+    with clear justification and a dependency/compatibility plan. No production code is required at this milestone.
+  </p>
+</section>
+
+<section class="section">
+  <h2>1. Planned Jetpack Compose Components</h2>
+  <p>
+    Ready-made Compose / Material 3 components planned for the current MASARAK screens.
+  </p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Component</th>
+          <th>Where used in MASARAK</th>
+          <th>Justification</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>Scaffold</code></td>
+          <td>Main role screens</td>
+          <td>Provides the overall screen structure for the top bar, main content, bottom navigation, and Snackbar.</td>
+        </tr>
+        <tr>
+          <td><code>TopAppBar</code></td>
+          <td>Home, Chat, Profile, and detail screens</td>
+          <td>Provides a consistent header for screen titles, back navigation, notifications, and other actions.</td>
+        </tr>
+        <tr>
+          <td><code>NavigationBar</code> + <code>NavigationBarItem</code></td>
+          <td>Bottom navigation for all three roles</td>
+          <td>Supports the four main destinations for Student, Field Supervisor, and Academic Supervisor.</td>
+        </tr>
+        <tr>
+          <td><code>TabRow</code> + <code>Tab</code></td>
+          <td>Trainee and Student detail screens</td>
+          <td>Lets supervisors switch between Tasks, Attendance, and Weekly Evaluation without opening separate screens.</td>
+        </tr>
+        <tr>
+          <td><code>LazyColumn</code></td>
+          <td>Tasks, Students, Trainees, Notifications, and Chat lists</td>
+          <td>Displays scrollable lists efficiently when the amount of content can grow.</td>
+        </tr>
+        <tr>
+          <td><code>Row</code> / <code>Column</code> / <code>Box</code> / <code>Spacer</code></td>
+          <td>Across all layouts</td>
+          <td>Provides the basic building blocks for arranging content vertically, horizontally, in layers, and with consistent spacing.</td>
+        </tr>
+        <tr>
+          <td><code>Card</code></td>
+          <td>Task cards, weekly records, summaries, and feedback</td>
+          <td>Groups related information into clear visual sections that match the MASARAK interface style.</td>
+        </tr>
+        <tr>
+          <td><code>ListItem</code></td>
+          <td>Students, Trainees, Chat, and Notifications</td>
+          <td>Provides a consistent row structure for repeated list content.</td>
+        </tr>
+        <tr>
+          <td><code>Text</code> / <code>Icon</code> / <code>IconButton</code></td>
+          <td>All screens</td>
+          <td>Displays labels, values, navigation icons, status icons, and icon-only actions.</td>
+        </tr>
+        <tr>
+          <td><code>Button</code> / <code>OutlinedButton</code> / <code>TextButton</code></td>
+          <td>Submit, Approve, Return, Confirm, Cancel, and other actions</td>
+          <td>Separates primary, secondary, and low-emphasis actions clearly for the user.</td>
+        </tr>
+        <tr>
+          <td><code>OutlinedTextField</code></td>
+          <td>Login, Create Account, Add Task, Attendance, Weekly Grade, and Linking</td>
+          <td>Collects the text, numeric, password, multiline, and feedback input required by the app.</td>
+        </tr>
+        <tr>
+          <td><code>RadioButton</code></td>
+          <td>Role selection, Individual/Team, and relevance classification</td>
+          <td>Supports choosing one option from a small set of mutually exclusive choices.</td>
+        </tr>
+        <tr>
+          <td><code>LinearProgressIndicator</code></td>
+          <td>Student training-hours summary</td>
+          <td>Shows the student's confirmed training hours compared with the required total.</td>
+        </tr>
+        <tr>
+          <td><code>AlertDialog</code></td>
+          <td>Mark Task as Incomplete</td>
+          <td>Confirms an important action before it is applied.</td>
+        </tr>
+        <tr>
+          <td><code>ModalBottomSheet</code></td>
+          <td>Reset Password, Add Attachment, Link Trainee, Link Student</td>
+          <td>Handles short secondary workflows without creating an additional full screen.</td>
+        </tr>
+        <tr>
+          <td><code>Snackbar</code></td>
+          <td>Submission, confirmation, and error feedback</td>
+          <td>Shows brief feedback after an action without interrupting the user's current workflow.</td>
+        </tr>
+        <tr>
+          <td><code>DatePickerDialog</code> + <code>DatePicker</code></td>
+          <td>Add Task</td>
+          <td>Provides the standard Material date-selection interface for the task completion date.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="section">
+  <h2>2. Planned Jetpack Libraries</h2>
+  <p>
+    Core libraries planned for the future MASARAK implementation.
+  </p>
+
+  <div class="cards">
+    <div class="card">
+      <h3>Jetpack Compose</h3>
+      <p><b>Justification:</b> Will be used to build the MASARAK Android user interface using declarative Kotlin UI.</p>
+    </div>
+
+    <div class="card">
+      <h3>Material 3</h3>
+      <p><b>Justification:</b> Provides the ready-made Material components needed for buttons, cards, text fields, navigation, dialogs, and other UI elements.</p>
+    </div>
+
+    <div class="card">
+      <h3>Navigation Compose</h3>
+      <p><b>Justification:</b> Will manage navigation between shared screens and the Student, Field Supervisor, and Academic Supervisor flows.</p>
+    </div>
+
+    <div class="card">
+      <h3>ViewModel</h3>
+      <p><b>Justification:</b> Will hold screen state and handle user events so UI logic remains separate from the Compose screens in the planned UDF architecture.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    Additional libraries such as Room, WorkManager, Retrofit, or Firebase are not committed at this stage.
+    They will only be added later if the implementation requires them.
+  </div>
+</section>
+
+<section class="section">
+  <h2>3. Dependencies & Compatibility</h2>
+  <p>
+    The following dependencies are the main ones expected for the current plan.
+    Exact version numbers will be selected during implementation after checking compatibility with the project setup.
+  </p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Dependency</th>
+          <th>Purpose</th>
+          <th>Compatibility approach</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>androidx.compose:compose-bom</code></td>
+          <td>Keeps Jetpack Compose library versions aligned.</td>
+          <td>Use one BOM version so Compose UI and Material-related libraries remain compatible with each other.</td>
+        </tr>
+        <tr>
+          <td><code>androidx.compose.material3:material3</code></td>
+          <td>Provides Material 3 UI components.</td>
+          <td>Use the version managed through the Compose BOM rather than selecting an unrelated version manually.</td>
+        </tr>
+        <tr>
+          <td><code>androidx.navigation:navigation-compose</code></td>
+          <td>Provides navigation between MASARAK screens.</td>
+          <td>Select a stable version that is compatible with the Android and Compose setup used by the project.</td>
+        </tr>
+        <tr>
+          <td><code>androidx.lifecycle:lifecycle-viewmodel-compose</code></td>
+          <td>Allows Compose screens to use ViewModels.</td>
+          <td>Use a Lifecycle version compatible with the project SDK and Compose environment.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note">
+    Dependency versions are not fixed in Milestone 2 because production implementation has not started yet.
+    The versions will be verified together before coding to avoid library conflicts.
+  </div>
+</section>
+
+<div class="footer">
+  MASARAK · Jetpack Compose Components & Libraries · Milestone 2 Planning
+</div>
+
+</div>
+</body>
+</html>
