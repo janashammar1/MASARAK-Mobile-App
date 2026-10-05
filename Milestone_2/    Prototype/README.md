@@ -2,8 +2,7 @@
 
 The interactive MASARAK prototype is available in Figma.
 
-[Open MASARAK Prototype]([https://www.figma.com/design/pECJ0o9O7KBDzS2KUgmK5g/MASARAK-%E2%80%94-Android-Prototype?node-id=2-105743&t=668XoZqkUO5OuHUJ-1](https://www.figma.com/proto/pECJ0o9O7KBDzS2KUgmK5g/MASARAK-%E2%80%94-Android-Prototype?node-id=141-277492&p=f&t=RvYXNbMyKhcez3zQ-1&scaling=scale-down&content-scaling=fixed&page-id=2%3A105743&starting-point-node-id=141%3A277426&show-proto-sidebar=1&desktop-link-click-timestamp=1791240198247&desktop-ul-exp-bucket=po))
-
+[Open MASARAK Prototype](https://www.figma.com/proto/pECJ0o9O7KBDzS2KUgmK5g/MASARAK-%E2%80%94-Android-Prototype?node-id=141-277492&p=f&t=RvYXNbMyKhcez3zQ-1&scaling=scale-down&content-scaling=fixed&page-id=2%3A105743&starting-point-node-id=141%3A277426&show-proto-sidebar=1&desktop-link-click-timestamp=1791240198247&desktop-ul-exp-bucket=po)
 ## How to Use
 
 1. Open the prototype link.
