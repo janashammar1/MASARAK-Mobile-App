@@ -17,10 +17,18 @@ The navigation documentation shows the main screen-to-screen flow for each role,
 - Field Supervisor
 - Academic Supervisor
 
-## Note
+## Important: PDF Preview on GitHub
 
-Some PDF files in this folder are large and may not preview directly inside GitHub.
+Some screen and navigation PDF files are large, so GitHub may display the message:
 
-If a PDF does not render in the browser, use the **Raw** or **Download** option to open the file.
+**“Unable to render code block”**
 
-The PDF files in this folder are the finalized screen and navigation documentation for Milestone 2.
+This does not mean the PDF file is missing or corrupted.
+
+If this message appears:
+
+1. Open the PDF file in GitHub.
+2. Click **Download** or **View raw / Raw**.
+3. Open the downloaded PDF normally on your device.
+
+All PDF files in this folder are complete and included in the repository.
