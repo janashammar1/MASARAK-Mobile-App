@@ -1,10 +1,10 @@
 # MASARAK — Milestone 2
 
-This folder contains the complete Milestone 2 design and architecture documentation for the MASARAK mobile application.
+This folder contains the complete Milestone 2 design, navigation, architecture, and implementation-planning documentation for the MASARAK mobile application.
 
 ## Milestone 2 Objective
 
-The goal of Milestone 2 is to define the application structure, user interface organization, navigation, and planned Android implementation components before development begins.
+The goal of Milestone 2 is to define the application structure, user interface, navigation flows, design system, and planned Android implementation components before development begins.
 
 ## Project Overview
 
@@ -24,38 +24,90 @@ Each role has its own screens, responsibilities, and navigation flow.
 
 ### 1. App Architecture
 
-Contains the MASARAK layered architecture diagram showing:
+Contains the finalized MASARAK application architecture showing:
 
 - UI Layer
 - Domain / Business Logic Layer
 - Data Layer
 - Unidirectional Data Flow
 
-Folder:
-`App_Architecture/`
+Folder: `App_Architecture/`
+
+---
 
 ### 2. Screens and Navigation
 
-Contains the finalized screens and navigation flows for:
+Contains the finalized screen designs and detailed navigation flows for:
 
 - Student
 - Field Supervisor
 - Academic Supervisor
-- Supporting Screens and UI states
+- Supporting screens and UI states
 
-Folder:
-`Screens_and_Navigation/`
+It also includes documentation explaining how to access large screen files if GitHub cannot preview them directly.
 
-### 3. Components and Libraries
+Folder: `Screens_and_Navigation/`
 
-Contains the planned Android components and libraries required for implementation.
+---
 
-Folder:
-`Components_and_Libraries/`
+### 3. Navigation Map
+
+Contains the finalized visual Navigation Map showing the main navigation flow across all three MASARAK user roles.
+
+Folder: `Navigation_Map/`
+
+Main file:
+
+`navigation-map.png`
+
+---
+
+### 4. Interactive Prototype
+
+Contains access information for the finalized interactive MASARAK prototype in Figma.
+
+The prototype includes flows for:
+
+- Student
+- Field Supervisor
+- Academic Supervisor
+
+Folder: `Prototype/`
+
+---
+
+### 5. Components and Libraries
+
+Contains the planned Jetpack Compose components and Android libraries required for implementation.
+
+Folder: `Components_and_Libraries/`
+
+---
+
+### 6. Style Guide
+
+The MASARAK design system and implementation reference is documented in:
+
+`STYLE_GUIDE.md`
+
+It includes:
+
+- Brand and visual identity
+- Colors and Material 3 color roles
+- Typography
+- Spacing
+- Shapes and corner radii
+- Borders and elevation
+- Icons
+- Reusable UI components
+- UI states
+- Jetpack Compose / Material 3 mappings
+
+---
 
 ## Implementation Context
 
-The application is planned for Android development using:
+MASARAK is planned for Android development using:
 
 - Kotlin
 - Jetpack Compose
@@ -65,17 +117,18 @@ The application is planned for Android development using:
 
 ## File Structure
 
-`App_Architecture/`  
-Architecture documentation.
+```text
+Milestone_2/
+├── README.md
+├── STYLE_GUIDE.md
+├── App_Architecture/
+├── Screens_and_Navigation/
+├── Navigation_Map/
+├── Components_and_Libraries/
+└── Prototype/
 
-`Screens_and_Navigation/`  
-Role-based screens, supporting screens, and navigation flows.
+Submission Note
 
-`Components_and_Libraries/`  
-Planned Android components and libraries.
+The files in this folder represent the finalized Milestone 2 design and architecture documentation prepared for implementation.
 
-## Submission Note
-
-The files included in this Milestone 2 folder represent the current finalized design and architecture documentation prepared for implementation.
-
-Some large PDF files may not preview directly inside GitHub due to file size or GitHub rendering limitations. The files are still available in the repository and can be opened using the Raw or Download option.
+Some large PDF files may not preview directly inside GitHub because of file size or GitHub rendering limitations. If this occurs, the files can still be accessed using the Raw or Download option.
