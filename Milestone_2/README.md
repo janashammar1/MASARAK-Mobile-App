@@ -105,6 +105,12 @@ It includes:
 
 ---
 
+### 7. AI Use Log
+
+Documents the AI tools used during Milestone 2, where they were used, and how their outputs were reviewed and adapted.
+
+---
+
 ## Implementation Context
 
 MASARAK is planned for Android development using:
