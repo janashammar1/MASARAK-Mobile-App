@@ -37,7 +37,11 @@ private val Gold = Color(0xFFFFD166)
 private val Purple = Color(0xFF9B8AD6)
 
 @Composable
-fun WelcomeScreen() {
+fun WelcomeScreen(
+    onGetStarted: () -> Unit = {}
+)
+{
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -156,7 +160,7 @@ fun WelcomeScreen() {
         }
 
         Button(
-            onClick = { },
+            onClick = onGetStarted,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),

@@ -1,4 +1,3 @@
-
 package sa.edu.iau.cshj.masarak.ui.screens
 
 import androidx.compose.foundation.background
@@ -25,11 +24,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import sa.edu.iau.cshj.masarak.ui.components.AppBottomBar
 import sa.edu.iau.cshj.masarak.ui.theme.DeepNavy
 import sa.edu.iau.cshj.masarak.ui.theme.MASARAKTheme
 import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material.icons.filled.Circle
+import sa.edu.iau.cshj.masarak.ui.components.AppBottomBar
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 
 private data class TaskItem(
@@ -53,22 +52,16 @@ private val sampleTasks = listOf(
 
 @Composable
 fun TasksScreen(
-    onTaskClick: (TaskDetails) -> Unit = {}
+    onTaskClick: (TaskDetails) -> Unit = {},
+    onAddTask: () -> Unit = {}
 ) {
     Scaffold(
         containerColor = Color(0xFFF7F5F3),
 
-        bottomBar = {
-            // No destination selected
-            AppBottomBar(
-                selectedItem = null,
-                onItemSelected = {}
-            )
-        },
 
         floatingActionButton = {
             FloatingActionButton(
-                onClick = {},
+                onClick = onAddTask,
                 modifier = Modifier.padding(bottom = 2.dp),
                 containerColor = DeepNavy,
                 contentColor = Color.White,
@@ -325,6 +318,20 @@ private fun TaskItem.toTaskDetails(): TaskDetails {
 @Composable
 private fun TasksScreenPreview() {
     MASARAKTheme {
-        TasksScreen()
+        Column(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Box(
+                modifier = Modifier.weight(1f)
+            ) {
+                TasksScreen()
+            }
+
+            AppBottomBar(
+                selectedItem = null,
+                onItemSelected = {}
+            )
+        }
     }
 }
+

@@ -31,12 +31,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import sa.edu.iau.cshj.masarak.ui.components.AppBottomBar
 import sa.edu.iau.cshj.masarak.ui.theme.DeepNavy
 import sa.edu.iau.cshj.masarak.ui.theme.MASARAKTheme
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Contrast
-
+import sa.edu.iau.cshj.masarak.ui.components.AppBottomBar
 enum class TaskStatus {
     RETURNED,
     WAITING_REVIEW,
@@ -80,12 +79,7 @@ fun TaskDetailsScreen(
 ) {
     Scaffold(
         containerColor = Color(0xFFF7F7F3),
-        bottomBar = {
-            AppBottomBar(
-                selectedItem = null,
-                onItemSelected = {}
-            )
-        }
+
     ) { innerPadding ->
 
         LazyColumn(
@@ -588,46 +582,15 @@ private val relevantTask = sampleTask.copy(
 @Composable
 private fun ReturnedPreview() {
     MASARAKTheme {
-        TaskDetailsScreen(task = sampleTask)
-    }
-}
+        Column(modifier = Modifier.fillMaxSize()) {
+            Box(modifier = Modifier.weight(1f)) {
+                TaskDetailsScreen(task = sampleTask)
+            }
 
-@Preview(showBackground = true, name = "2 - Waiting for Review")
-@Composable
-private fun WaitingPreview() {
-    MASARAKTheme {
-        TaskDetailsScreen(task = waitingTask)
-    }
-}
-
-@Preview(showBackground = true, name = "3 - Partially Relevant")
-@Composable
-private fun PartiallyRelevantPreview() {
-    MASARAKTheme {
-        TaskDetailsScreen(task = partiallyRelevantTask)
-    }
-}
-
-@Preview(showBackground = true, name = "4 - Not Relevant")
-@Composable
-private fun NotRelevantPreview() {
-    MASARAKTheme {
-        TaskDetailsScreen(task = notRelevantTask)
-    }
-}
-
-@Preview(showBackground = true, name = "5 - Incomplete")
-@Composable
-private fun IncompletePreview() {
-    MASARAKTheme {
-        TaskDetailsScreen(task = incompleteTask)
-    }
-}
-
-@Preview(showBackground = true, name = "6 - Relevant")
-@Composable
-private fun RelevantPreview() {
-    MASARAKTheme {
-        TaskDetailsScreen(task = relevantTask)
+            AppBottomBar(
+                selectedItem = null,
+                onItemSelected = {}
+            )
+        }
     }
 }
