@@ -1,5 +1,5 @@
 
-package sa.edu.iau.cshj.masarak.ui.screens
+package sa.edu.iau.cshj.masarak.ui.screens.onboarding
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -21,6 +21,8 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -31,11 +33,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import sa.edu.iau.cshj.masarak.ui.components.AppBottomBar
 import sa.edu.iau.cshj.masarak.ui.theme.DeepNavy
 import sa.edu.iau.cshj.masarak.ui.theme.MASARAKTheme
-import androidx.compose.material.icons.filled.Badge
-import androidx.compose.material.icons.filled.Contrast
-import sa.edu.iau.cshj.masarak.ui.components.AppBottomBar
+
 enum class TaskStatus {
     RETURNED,
     WAITING_REVIEW,
@@ -68,7 +69,8 @@ private val sampleTask = TaskDetails(
     description = "Fixed the back button closing the app on the profile screen.",
     status = TaskStatus.RETURNED,
     reviewer = "Eng. Khalid",
-    reviewComment = "Please add screenshots of the bug and of the fix. Update the details and resubmit."
+    reviewComment = "Please add screenshots of the bug and of the fix. Update the details and resubmit.",
+    evidence = listOf("navigation-screenshot.png", "bug-report.pdf")
 )
 
 @Composable
@@ -78,8 +80,7 @@ fun TaskDetailsScreen(
     onEditClick: () -> Unit = {}
 ) {
     Scaffold(
-        containerColor = Color(0xFFF7F7F3),
-
+        containerColor = Color(0xFFF7F7F3)
     ) { innerPadding ->
 
         LazyColumn(
@@ -450,7 +451,7 @@ private fun ReviewSection(
                 color = Color(0xFFC7ECC5),
                 icon = Icons.Default.CheckCircle,
                 title = "Relevant",
-                message = ""
+                message = task.reviewComment
             )
         }
     }
@@ -519,68 +520,9 @@ private fun ReviewCard(
     }
 }
 
-// Preview data for all task statuses
-
-private val waitingTask = sampleTask.copy(
-    title = "Build the login API",
-    date = "10 Sep",
-    hours = "6h",
-    description = "Built the login endpoint with token sign-in, then tested it with the mobile app.",
-    status = TaskStatus.WAITING_REVIEW,
-    challenges = "Handling expired tokens.",
-    evidence = listOf("login-flow.png", "api-notes.pdf"),
-    supervisorComment = "Clean structure and clear validation. Add screenshots of the login flow next time.",
-    supervisorTime = "09:30"
-)
-
-private val partiallyRelevantTask = sampleTask.copy(
-    title = "Connect login to the app",
-    date = "9 Sep",
-    hours = "4h",
-    type = "Team",
-    description = "Connected the login screen to the new API with the team and handled loading states.",
-    status = TaskStatus.PARTIALLY_RELEVANT,
-    reviewer = "Dr. Huda",
-    reviewComment = "Good work. Ask for tasks with more backend logic so they match your major.",
-    supervisorComment = "Good teamwork and tidy code.",
-    supervisorTime = "Thu"
-)
-
-private val notRelevantTask = sampleTask.copy(
-    title = "Organise the shared drive",
-    date = "7 Sep",
-    hours = "3h",
-    description = "Sorted the team files into folders and renamed them.",
-    status = TaskStatus.NOT_RELEVANT,
-    reviewer = "Dr. Huda",
-    reviewComment = "Try asking for tasks with coding or testing, so they fit your major.",
-    supervisorComment = "Thanks for sorting the files quickly.",
-    supervisorTime = "Tue"
-)
-
-private val incompleteTask = sampleTask.copy(
-    title = "Set up CI pipeline",
-    date = "10 Sep",
-    hours = "3h",
-    type = "Team",
-    description = "Started the build pipeline for the app with the team.",
-    status = TaskStatus.INCOMPLETE,
-    reviewer = "Eng. Khalid",
-    reviewComment = "The pipeline isn't finished yet, so this task won't count this time."
-)
-
-private val relevantTask = sampleTask.copy(
-    title = "Design the database",
-    date = "8 Sep",
-    hours = "8h",
-    type = "Team",
-    description = "Designed the database structure for the application.",
-    status = TaskStatus.RELEVANT
-)
-
-@Preview(showBackground = true, name = "1 - Returned for Updates")
+@Preview(showBackground = true, name = "Task Details")
 @Composable
-private fun ReturnedPreview() {
+private fun TaskDetailsPreview() {
     MASARAKTheme {
         Column(modifier = Modifier.fillMaxSize()) {
             Box(modifier = Modifier.weight(1f)) {

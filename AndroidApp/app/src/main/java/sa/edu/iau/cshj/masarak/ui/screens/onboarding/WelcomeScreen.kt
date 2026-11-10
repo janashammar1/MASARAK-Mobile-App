@@ -1,5 +1,4 @@
-
-package sa.edu.iau.cshj.masarak.ui.screens
+package sa.edu.iau.cshj.masarak.ui.screens.onboarding
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background

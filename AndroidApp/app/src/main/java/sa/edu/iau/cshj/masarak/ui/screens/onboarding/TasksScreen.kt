@@ -1,4 +1,5 @@
-package sa.edu.iau.cshj.masarak.ui.screens
+
+package sa.edu.iau.cshj.masarak.ui.screens.onboarding
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -10,26 +11,32 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircleOutline
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Circle
+import androidx.compose.material.icons.filled.Contrast
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import sa.edu.iau.cshj.masarak.data.entity.TaskReviewEntity
+import sa.edu.iau.cshj.masarak.data.entity.TaskSubmissionEntity
+import sa.edu.iau.cshj.masarak.ui.components.AppBottomBar
 import sa.edu.iau.cshj.masarak.ui.theme.DeepNavy
 import sa.edu.iau.cshj.masarak.ui.theme.MASARAKTheme
-import androidx.compose.material.icons.filled.Contrast
-import androidx.compose.material.icons.filled.Circle
-import sa.edu.iau.cshj.masarak.ui.components.AppBottomBar
-import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import sa.edu.iau.cshj.masarak.ui.viewmodel.TaskViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 private data class TaskItem(
     val title: String,
@@ -39,26 +46,36 @@ private data class TaskItem(
     val status: String
 )
 
-private val sampleTasks = listOf(
-    TaskItem("Fix the navigation bug", "2h", "Individual", "11 Sep", "Returned for Updates"),
-    TaskItem("Build the sign-up form", "5h", "Individual", "Today", "Waiting for Field Review"),
-    TaskItem("Build the login API", "6h", "Individual", "10 Sep", "Waiting for Academic Review"),
-    TaskItem("Connect login to the app", "4h", "Team", "9 Sep", "Partially Relevant"),
-    TaskItem("Design the database", "8h", "Team", "8 Sep", "Relevant"),
-    TaskItem("Organise the shared drive", "3h", "Individual", "7 Sep", "Not Relevant"),
-    TaskItem("Update the team calendar", "2h", "Individual", "4 Sep", "Not Relevant"),
-    TaskItem("Set up CI pipeline", "3h", "Team", "10 Sep", "Incomplete")
-)
-
 @Composable
 fun TasksScreen(
+    taskViewModel: TaskViewModel? = null,
+    recordId: Long? = null,
     onTaskClick: (TaskDetails) -> Unit = {},
     onAddTask: () -> Unit = {}
 ) {
+    val tasks by (
+            taskViewModel?.tasks?.collectAsState()
+                ?: remember { mutableStateOf(emptyList()) }
+            )
+
+    val submissions by (
+            taskViewModel?.submissions?.collectAsState()
+                ?: remember { mutableStateOf(emptyMap()) }
+            )
+
+    val reviews by (
+            taskViewModel?.reviews?.collectAsState()
+                ?: remember { mutableStateOf(emptyMap()) }
+            )
+
+    LaunchedEffect(taskViewModel, recordId) {
+        if (taskViewModel != null && recordId != null) {
+            taskViewModel.loadTasks(recordId)
+        }
+    }
+
     Scaffold(
         containerColor = Color(0xFFF7F5F3),
-
-
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onAddTask,
@@ -122,21 +139,107 @@ fun TasksScreen(
                 )
             }
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(bottom = 12.dp)
-            ) {
-                items(sampleTasks) { task ->
-                    TaskCard(
-                        task = task,
-                        onClick = {
-                            onTaskClick(task.toTaskDetails())
-                        }
+            when {
+                taskViewModel == null || recordId == null -> {
+                    EmptyTasksMessage(
+                        message = "Tasks are not connected yet"
                     )
+                }
+
+                tasks.isEmpty() -> {
+                    EmptyTasksMessage(
+                        message = "No tasks available yet"
+                    )
+                }
+
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(bottom = 12.dp)
+                    ) {
+                        items(
+                            items = tasks,
+                            key = { it.taskId }
+                        ) { task ->
+
+                            LaunchedEffect(task.taskId) {
+                                taskViewModel.loadSubmissions(task.taskId)
+                            }
+
+                            val taskSubmissions =
+                                submissions[task.taskId].orEmpty()
+
+                            val latestSubmission =
+                                taskSubmissions.maxByOrNull {
+                                    it.attemptNo
+                                }
+
+                            if (latestSubmission != null) {
+
+                                LaunchedEffect(
+                                    latestSubmission.submissionId
+                                ) {
+                                    taskViewModel.loadReviews(
+                                        latestSubmission.submissionId
+                                    )
+                                }
+
+                                val taskReviews =
+                                    reviews[latestSubmission.submissionId]
+                                        .orEmpty()
+
+                                val latestReview =
+                                    taskReviews.maxByOrNull {
+                                        it.reviewedAt
+                                    }
+
+                                val taskItem =
+                                    latestSubmission.toTaskItem(latestReview)
+
+                                TaskCard(
+                                    task = taskItem,
+                                    onClick = {
+                                        onTaskClick(
+                                            latestSubmission.toTaskDetails(
+                                                taskReviews
+                                            )
+                                        )
+                                    }
+                                )
+
+                            } else {
+                                TaskCard(
+                                    task = TaskItem(
+                                        title = "Task #${task.taskId}",
+                                        hours = "Not submitted",
+                                        type = "Task",
+                                        date = "",
+                                        status = "Waiting for Field Review"
+                                    ),
+                                    onClick = {}
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun EmptyTasksMessage(message: String) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = message,
+            color = Color.Gray,
+            fontSize = 13.sp,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -195,7 +298,11 @@ private fun TaskCard(
                 Spacer(modifier = Modifier.height(2.dp))
 
                 Text(
-                    text = "${task.hours} · ${task.type} · ${task.date}",
+                    text = listOf(
+                        task.hours,
+                        task.type,
+                        task.date
+                    ).filter { it.isNotBlank() }.joinToString(" · "),
                     fontSize = 9.sp,
                     color = Color(0xFF666666)
                 )
@@ -219,6 +326,7 @@ private fun TaskCard(
 private fun StatusChip(status: String) {
 
     val (backgroundColor, textColor, icon) = when (status) {
+
         "Returned for Updates" -> Triple(
             Color(0xFFFFD087),
             Color(0xFF785A00),
@@ -247,7 +355,7 @@ private fun StatusChip(status: String) {
         "Not Relevant" -> Triple(
             Color(0xFFFFDAD6),
             Color(0xFF9B3434),
-            Icons.Default.RadioButtonUnchecked
+            Icons.Default.Circle
         )
 
         "Incomplete" -> Triple(
@@ -286,27 +394,97 @@ private fun StatusChip(status: String) {
     }
 }
 
-private fun TaskItem.toTaskDetails(): TaskDetails {
-    val taskStatus = when (status) {
-        "Returned for Updates" -> TaskStatus.RETURNED
+private fun TaskSubmissionEntity.toTaskItem(
+    review: TaskReviewEntity?
+): TaskItem {
 
-        "Waiting for Field Review",
-        "Waiting for Academic Review" -> TaskStatus.WAITING_REVIEW
+    val status = when (
+        review?.decision?.uppercase()
+    ) {
+        "RETURNED",
+        "RETURNED_FOR_UPDATES" -> "Returned for Updates"
 
-        "Partially Relevant" -> TaskStatus.PARTIALLY_RELEVANT
-        "Relevant" -> TaskStatus.RELEVANT
-        "Not Relevant" -> TaskStatus.NOT_RELEVANT
-        "Incomplete" -> TaskStatus.INCOMPLETE
-        else -> TaskStatus.RELEVANT
+        "APPROVED",
+        "RELEVANT" -> "Relevant"
+
+        "PARTIALLY_RELEVANT" -> "Partially Relevant"
+
+        "NOT_RELEVANT",
+        "REJECTED" -> "Not Relevant"
+
+        "INCOMPLETE" -> "Incomplete"
+
+        else -> "Waiting for Field Review"
+    }
+
+    val hoursValue = durationMinutes / 60.0
+    val hoursText = if (durationMinutes % 60 == 0) {
+        "${durationMinutes / 60}h"
+    } else {
+        "${String.format(Locale.getDefault(), "%.1f", hoursValue)}h"
+    }
+
+    return TaskItem(
+        title = title,
+        hours = hoursText,
+        type = taskType,
+        date = SimpleDateFormat(
+            "dd MMM",
+            Locale.getDefault()
+        ).format(Date(taskDate)),
+        status = status
+    )
+}
+
+private fun TaskSubmissionEntity.toTaskDetails(
+    reviews: List<TaskReviewEntity>
+): TaskDetails {
+
+    val latestReview = reviews.maxByOrNull {
+        it.reviewedAt
+    }
+
+    val status = when (
+        latestReview?.decision?.uppercase()
+    ) {
+        "RETURNED",
+        "RETURNED_FOR_UPDATES" -> TaskStatus.RETURNED
+
+        "APPROVED",
+        "RELEVANT" -> TaskStatus.RELEVANT
+
+        "PARTIALLY_RELEVANT" -> TaskStatus.PARTIALLY_RELEVANT
+
+        "NOT_RELEVANT",
+        "REJECTED" -> TaskStatus.NOT_RELEVANT
+
+        "INCOMPLETE" -> TaskStatus.INCOMPLETE
+
+        else -> TaskStatus.WAITING_REVIEW
+    }
+
+    val hoursValue = durationMinutes / 60.0
+    val hoursText = if (durationMinutes % 60 == 0) {
+        "${durationMinutes / 60}h"
+    } else {
+        "${String.format(Locale.getDefault(), "%.1f", hoursValue)}h"
     }
 
     return TaskDetails(
         title = title,
-        date = date,
-        hours = hours,
-        type = type,
-        description = "",
-        status = taskStatus
+        date = SimpleDateFormat(
+            "dd MMM",
+            Locale.getDefault()
+        ).format(Date(taskDate)),
+        hours = hoursText,
+        type = taskType,
+        description = description,
+        status = status,
+        reviewer = latestReview?.let {
+            "Reviewer #${it.reviewerId}"
+        } ?: "",
+        reviewComment = latestReview?.comment.orEmpty(),
+        challenges = challenges.orEmpty()
     )
 }
 
@@ -334,4 +512,3 @@ private fun TasksScreenPreview() {
         }
     }
 }
-
