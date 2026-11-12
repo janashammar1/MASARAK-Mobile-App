@@ -1,3 +1,4 @@
+
 package sa.edu.iau.cshj.masarak.data.dao
 
 import androidx.room.Dao
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ChatDao {
+
     @Query("""
         SELECT c.* FROM conversations c
         INNER JOIN conversation_members cm ON c.conversationId = cm.conversationId
@@ -37,4 +39,16 @@ interface ChatDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessageAttachment(attachment: MessageAttachmentEntity): Long
+
+    @Query("""
+        UPDATE conversation_members
+        SET lastReadAt = :readAt
+        WHERE conversationId = :conversationId
+        AND userId = :userId
+    """)
+    suspend fun updateLastReadAt(
+        conversationId: Long,
+        userId: Long,
+        readAt: Long
+    )
 }
