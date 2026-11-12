@@ -1,3 +1,4 @@
+
 package sa.edu.iau.cshj.masarak.data.repository
 
 import kotlinx.coroutines.flow.Flow
@@ -8,6 +9,7 @@ import sa.edu.iau.cshj.masarak.data.entity.MessageAttachmentEntity
 import sa.edu.iau.cshj.masarak.data.entity.MessageEntity
 
 class ChatRepository(private val chatDao: ChatDao) {
+
     fun getConversationsForUser(userId: Long): Flow<List<ConversationEntity>> =
         chatDao.getConversationsForUser(userId)
 
@@ -28,4 +30,11 @@ class ChatRepository(private val chatDao: ChatDao) {
 
     suspend fun insertMessageAttachment(attachment: MessageAttachmentEntity): Long =
         chatDao.insertMessageAttachment(attachment)
+
+    suspend fun updateLastReadAt(
+        conversationId: Long,
+        userId: Long,
+        readAt: Long
+    ) =
+        chatDao.updateLastReadAt(conversationId, userId, readAt)
 }
