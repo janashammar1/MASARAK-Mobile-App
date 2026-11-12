@@ -1,3 +1,4 @@
+
 package sa.edu.iau.cshj.masarak.data
 
 import android.content.Context
@@ -28,7 +29,7 @@ import sa.edu.iau.cshj.masarak.data.entity.*
         MessageAttachmentEntity::class,
         NotificationEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -41,12 +42,26 @@ abstract class MasarakDatabase : RoomDatabase() {
     abstract fun notificationDao(): NotificationDao
 
     companion object {
+
         @Volatile
         private var INSTANCE: MasarakDatabase? = null
 
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE users ADD COLUMN passwordSalt TEXT")
+                db.execSQL(
+                    "ALTER TABLE users ADD COLUMN passwordSalt TEXT"
+                )
+            }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS
+                    index_users_email ON users(email)
+                    """.trimIndent()
+                )
             }
         }
 
@@ -57,8 +72,12 @@ abstract class MasarakDatabase : RoomDatabase() {
                     MasarakDatabase::class.java,
                     "masarak_database"
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(
+                        MIGRATION_1_2,
+                        MIGRATION_2_3
+                    )
                     .build()
+
                 INSTANCE = instance
                 instance
             }
