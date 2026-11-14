@@ -2,128 +2,119 @@
 package sa.edu.iau.cshj.masarak.ui.screens.chat
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.tooling.preview.Preview
 
-private val ChatNavy = Color(0xFF0C0D45)
-private val ChatTeal = Color(0xFF00696E)
-private val ChatBackground = Color(0xFFF7F6F5)
-
-// Message data
-data class ConversationMessage(
-    val messageId: String,
-    val text: String,
-    val time: String,
-    val isSent: Boolean,
-    val attachmentName: String? = null
-)
+private val ConversationNavy = Color(0xFF0C0D45)
+private val ConversationTeal = Color(0xFF65D6D0)
+private val ConversationBackground = Color(0xFFF7F6F5)
 
 @Composable
 fun ConversationScreen(
-    conversationId: String = "",
-    participantName: String = "Eng. Khalid Alotaibi",
-    participantRole: String = "Field Supervisor",
-    messages: List<ConversationMessage> = emptyList(),
     onBack: () -> Unit = {},
-    onEdit: () -> Unit = {},
     onSendMessage: (String) -> Unit = {},
-    onAttachmentClick: (String) -> Unit = {}
+    onAttachmentClick: () -> Unit = {}
 ) {
-    var message by remember {
-        mutableStateOf("")
-    }
+    var message by remember { mutableStateOf("") }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(ChatBackground)
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFFE2ECF9),
+                        ConversationBackground,
+                        ConversationBackground
+                    )
+                )
+            )
     ) {
-
         // Top bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White)
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .padding(
+                    horizontal = 14.dp,
+                    vertical = 12.dp
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(onClick = onBack) {
+            TextButton(
+                onClick = onBack,
+                contentPadding = PaddingValues(0.dp)
+            ) {
                 Text(
                     text = "‹",
                     fontSize = 28.sp,
-                    color = ChatNavy
+                    color = ConversationNavy
                 )
             }
 
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = participantName,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = ChatNavy
-                )
+            Text(
+                text = "Dr. Huda Alzahrani",
+                modifier = Modifier.weight(1f),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = ConversationNavy
+            )
 
-                Text(
-                    text = participantRole,
-                    fontSize = 10.sp,
-                    color = Color.Gray
-                )
-            }
-
-            TextButton(onClick = onEdit) {
-                Text(
-                    text = "Edit",
-                    color = ChatTeal,
-                    fontSize = 11.sp
-                )
-            }
+            Text(
+                text = "♜ Academic",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium,
+                color = ConversationNavy
+            )
         }
 
+        // Conversation information
+        Text(
+            text = "You both supervise Sara Alqahtani and Jana Alharbi.",
+            fontSize = 10.sp,
+            color = Color.DarkGray,
+            modifier = Modifier.padding(
+                start = 18.dp,
+                end = 18.dp,
+                top = 8.dp,
+                bottom = 10.dp
+            )
+        )
+
         // Messages
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp),
-            contentPadding = PaddingValues(vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(9.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(
-                items = messages,
-                key = { it.messageId }
-            ) { item ->
+            MessageBubble(
+                text = "Sara’s last tasks were Not Relevant. Could she get more backend work?",
+                time = "08:05",
+                isSent = false
+            )
 
-                if (item.attachmentName != null) {
-                    AttachmentBubble(
-                        fileName = item.attachmentName,
-                        time = item.time,
-                        onClick = {
-                            onAttachmentClick(item.messageId)
-                        }
-                    )
-                } else {
-                    MessageBubble(
-                        text = item.text,
-                        time = item.time,
-                        isSent = item.isSent
-                    )
-                }
-            }
+            MessageBubble(
+                text = "Yes — I’ll give her the API tasks from next week.",
+                time = "Sent · 08:20",
+                isSent = true
+            )
+
+            MessageBubble(
+                text = "Thank you. I’ll look out for them.",
+                time = "08:22",
+                isSent = false
+            )
         }
 
         // Message input
@@ -131,42 +122,53 @@ fun ConversationScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color.White)
-                .padding(horizontal = 10.dp, vertical = 8.dp),
+                .padding(
+                    horizontal = 10.dp,
+                    vertical = 7.dp
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "♧",
-                fontSize = 20.sp,
-                color = Color.Gray,
-                modifier = Modifier.padding(horizontal = 8.dp)
-            )
+            IconButton(
+                onClick = onAttachmentClick,
+                modifier = Modifier.size(34.dp)
+            ) {
+                Text(
+                    text = "♧",
+                    fontSize = 19.sp,
+                    color = Color.DarkGray
+                )
+            }
 
             OutlinedTextField(
                 value = message,
                 onValueChange = { message = it },
                 placeholder = {
                     Text(
-                        "Message",
-                        fontSize = 12.sp
+                        text = "Message",
+                        fontSize = 11.sp,
+                        color = Color.Gray
                     )
                 },
                 modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(18.dp),
                 singleLine = true,
+                textStyle = LocalTextStyle.current.copy(
+                    fontSize = 11.sp,
+                    color = ConversationNavy
+                ),
                 colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedBorderColor = Color.Transparent,
-                    focusedBorderColor = ChatTeal
+                    unfocusedBorderColor = Color(0xFFE5E5E5),
+                    focusedBorderColor = ConversationTeal,
+                    cursorColor = ConversationTeal
                 )
             )
 
-            Spacer(modifier = Modifier.width(6.dp))
+            Spacer(modifier = Modifier.width(5.dp))
 
             Button(
                 onClick = {
-                    val text = message.trim()
-
-                    if (text.isNotEmpty()) {
-                        onSendMessage(text)
+                    if (message.isNotBlank()) {
+                        onSendMessage(message)
                         message = ""
                     }
                 },
@@ -178,12 +180,15 @@ fun ConversationScreen(
                 )
             ) {
                 Text(
-                    text = "▶",
-                    color = ChatNavy,
-                    fontSize = 14.sp
+                    text = "▷",
+                    fontSize = 17.sp,
+                    color = ConversationNavy
                 )
             }
         }
+
+        // AppBottomBar(role) will be connected here
+        // by the project navigation integration.
     }
 }
 
@@ -195,27 +200,36 @@ private fun MessageBubble(
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = if (isSent) Alignment.End
-        else Alignment.Start
+        horizontalAlignment = if (isSent) {
+            Alignment.End
+        } else {
+            Alignment.Start
+        }
     ) {
         Column(
             modifier = Modifier
-                .widthIn(max = 270.dp)
+                .widthIn(max = 265.dp)
                 .background(
-                    color = if (isSent) Color(0xFFE5E9F7)
-                    else Color.White,
-                    shape = RoundedCornerShape(12.dp)
+                    color = if (isSent) {
+                        Color(0xFFE3E6F5)
+                    } else {
+                        Color.White
+                    },
+                    shape = RoundedCornerShape(2.dp)
                 )
-                .padding(10.dp)
+                .padding(
+                    horizontal = 11.dp,
+                    vertical = 9.dp
+                )
         ) {
             Text(
                 text = text,
                 fontSize = 11.sp,
-                color = ChatNavy,
-                lineHeight = 16.sp
+                lineHeight = 15.sp,
+                color = Color(0xFF252536)
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(3.dp))
 
             Text(
                 text = time,
@@ -226,102 +240,8 @@ private fun MessageBubble(
     }
 }
 
-@Composable
-private fun AttachmentBubble(
-    fileName: String,
-    time: String,
-    onClick: () -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.End
-    ) {
-        Column(
-            modifier = Modifier
-                .widthIn(max = 220.dp)
-                .background(
-                    Color(0xFFE5E9F7),
-                    RoundedCornerShape(12.dp)
-                )
-                .clickable { onClick() }
-                .padding(10.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .background(
-                            Color(0xFFDDE8DF),
-                            RoundedCornerShape(6.dp)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "▣",
-                        color = ChatTeal
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Text(
-                    text = fileName,
-                    fontSize = 10.sp,
-                    color = ChatNavy
-                )
-            }
-
-            Spacer(modifier = Modifier.height(5.dp))
-
-            Text(
-                text = time,
-                fontSize = 9.sp,
-                color = Color.Gray
-            )
-        }
-    }
-}
-
-// Preview
 @Preview(showBackground = true)
 @Composable
 fun ConversationScreenPreview() {
-    ConversationScreen(
-        messages = listOf(
-            ConversationMessage(
-                messageId = "1",
-                text = "Morning Sara, stand-up moved to 10:00.",
-                time = "08:40",
-                isSent = false
-            ),
-            ConversationMessage(
-                messageId = "2",
-                text = "Thanks! Sharing the login screens here.",
-                time = "Sent · 08:42",
-                isSent = true
-            ),
-            ConversationMessage(
-                messageId = "3",
-                text = "",
-                time = "08:44",
-                isSent = true,
-                attachmentName = "login-flow.png"
-            ),
-            ConversationMessage(
-                messageId = "4",
-                text = "",
-                time = "08:45",
-                isSent = true,
-                attachmentName = "api-notes.pdf"
-            ),
-            ConversationMessage(
-                messageId = "5",
-                text = "Got them. Please submit the task too so I can review it.",
-                time = "08:50",
-                isSent = false
-            )
-        )
-    )
+    ConversationScreen()
 }

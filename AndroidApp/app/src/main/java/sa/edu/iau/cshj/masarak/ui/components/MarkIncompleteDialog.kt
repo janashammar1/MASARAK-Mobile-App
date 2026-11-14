@@ -22,6 +22,8 @@ fun MarkIncompleteDialog(
     onConfirm: () -> Unit
 ) {
     val red = Color(0xFFC62828)
+    val navy = Color(0xFF0C0D45)
+    val teal = Color(0xFF00696E)
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -34,6 +36,7 @@ fun MarkIncompleteDialog(
                 modifier = Modifier.padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // Warning icon
                 Box(
                     modifier = Modifier
                         .size(42.dp)
@@ -57,7 +60,7 @@ fun MarkIncompleteDialog(
                     text = "Mark as incomplete?",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0C0D45)
+                    color = navy
                 )
 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -81,8 +84,8 @@ fun MarkIncompleteDialog(
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(
-                            "Cancel",
-                            color = Color(0xFF00696E)
+                            text = "Cancel",
+                            color = teal
                         )
                     }
 
@@ -95,7 +98,7 @@ fun MarkIncompleteDialog(
                         )
                     ) {
                         Text(
-                            "Mark Incomplete",
+                            text = "Mark Incomplete",
                             fontSize = 11.sp,
                             color = Color.White
                         )

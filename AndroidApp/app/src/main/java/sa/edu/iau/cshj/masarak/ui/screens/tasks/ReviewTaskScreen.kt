@@ -10,34 +10,31 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.tooling.preview.Preview
 import sa.edu.iau.cshj.masarak.ui.components.MarkIncompleteDialog
-import sa.edu.iau.cshj.masarak.ui.theme.DeepNavy
-import sa.edu.iau.cshj.masarak.ui.theme.PearlAqua
-import sa.edu.iau.cshj.masarak.ui.theme.Teal
-import sa.edu.iau.cshj.masarak.ui.theme.MASARAKTheme
+
+private val ReviewNavy = Color(0xFF0C0D45)
+private val ReviewTeal = Color(0xFF00696E)
+private val ReviewAqua = Color(0xFFBFEDEA)
+private val ReviewBackground = Color(0xFFF7F6F5)
+private val ReviewRed = Color(0xFFC62828)
 
 @Composable
 fun ReviewTaskScreen(
-    taskTitle: String = "Build the profile screen",
-    studentName: String = "Jana Alshahr",
-    taskDate: String = "14 Sep",
-    duration: String = "5h",
-    taskType: String = "Individual",
-    description: String = "Build the profile screen with the photo, name and edit button.",
-    evidenceFileName: String = "profile.png",
-    onApprove: (String) -> Unit = {},
-    onReturn: (String) -> Unit = {},
-    onIncomplete: (String) -> Unit = {},
-    onBack: () -> Unit = {},
-    onEvidenceClick: () -> Unit = {}
+    onApprove: () -> Unit = {},
+    onReturn: () -> Unit = {},
+    onIncomplete: () -> Unit = {},
+    onBack: () -> Unit = {}
 ) {
     var feedback by remember {
-        mutableStateOf("Clean layout. Please add the empty state next time.")
+        mutableStateOf(
+            "Clean layout. Please add the empty state next time."
+        )
     }
 
     var showIncompleteDialog by remember {
@@ -47,21 +44,28 @@ fun ReviewTaskScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF7F6F5))
-            .padding(horizontal = 16.dp)
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFFE2ECF9),
+                        ReviewBackground,
+                        ReviewBackground
+                    )
+                )
+            )
     ) {
 
-        // Top Bar
+        // Top bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 16.dp),
+                .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = "‹",
-                fontSize = 30.sp,
-                color = DeepNavy,
+                fontSize = 28.sp,
+                color = ReviewNavy,
                 modifier = Modifier.clickable {
                     onBack()
                 }
@@ -71,230 +75,296 @@ fun ReviewTaskScreen(
 
             Text(
                 text = "Review task",
-                fontSize = 18.sp,
+                fontSize = 17.sp,
                 fontWeight = FontWeight.Bold,
-                color = DeepNavy
+                color = ReviewNavy
             )
         }
 
-        // Task Details Card
+        // Task details card
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
                 containerColor = Color.White
+            ),
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = 1.dp
             )
         ) {
             Column(
                 modifier = Modifier.padding(14.dp)
             ) {
                 Text(
-                    text = taskTitle,
+                    text = "Build the profile screen",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = DeepNavy
+                    color = ReviewNavy
                 )
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(28.dp)
-                            .background(PearlAqua, CircleShape),
+                            .size(30.dp)
+                            .background(
+                                ReviewAqua,
+                                CircleShape
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = studentName.firstOrNull()?.uppercase() ?: "?",
-                            color = DeepNavy,
-                            fontWeight = FontWeight.Bold
+                            text = "JA",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = ReviewNavy
                         )
                     }
 
                     Spacer(modifier = Modifier.width(8.dp))
 
                     Text(
-                        text = studentName,
-                        fontSize = 12.sp,
-                        color = DeepNavy,
-                        fontWeight = FontWeight.Medium
+                        text = "Jana Alharbi",
+                        fontSize = 11.sp,
+                        color = ReviewNavy
                     )
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                Text(
-                    text = "▣ $taskDate     ◷ $duration     ♙ $taskType",
-                    fontSize = 11.sp,
-                    color = Color.DarkGray
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "▣  14 Sep",
+                        fontSize = 11.sp,
+                        color = ReviewNavy
+                    )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Text(
+                        text = "◷  5h",
+                        fontSize = 11.sp,
+                        color = ReviewNavy
+                    )
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Text(
+                        text = "♙  Individual",
+                        fontSize = 11.sp,
+                        color = ReviewNavy
+                    )
+                }
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 10.dp),
+                    color = Color(0xFFE2E2E2)
+                )
 
                 Text(
                     text = "Description",
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color = DeepNavy
+                    color = Color.Gray
                 )
 
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = description,
+                    text = "Built the profile screen with the photo, name and edit button.",
                     fontSize = 12.sp,
-                    color = Color.DarkGray,
-                    lineHeight = 18.sp
+                    color = ReviewNavy,
+                    lineHeight = 17.sp
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 10.dp),
+                    color = Color(0xFFE2E2E2)
+                )
 
                 Text(
                     text = "Evidence",
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color = DeepNavy
+                    color = Color.Gray
                 )
 
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Surface(
-                    modifier = Modifier.clickable {
-                        onEvidenceClick()
-                    },
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFFEAF5F5)
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color(0xFFF3F3F3)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(
+                            horizontal = 10.dp,
+                            vertical = 6.dp
+                        ),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "▣",
+                            color = ReviewTeal,
+                            fontSize = 12.sp
+                        )
+
+                        Spacer(modifier = Modifier.width(7.dp))
+
+                        Text(
+                            text = "profile.png",
+                            fontSize = 11.sp,
+                            color = ReviewNavy
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(18.dp))
+
+        // Your review
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp)
+        ) {
+            HorizontalDivider(
+                color = Color(0xFFE2E2E2)
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "YOUR REVIEW",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Gray
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "Feedback",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = ReviewNavy
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            OutlinedTextField(
+                value = feedback,
+                onValueChange = { feedback = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp),
+                shape = RoundedCornerShape(12.dp),
+                textStyle = LocalTextStyle.current.copy(
+                    fontSize = 12.sp,
+                    color = ReviewNavy,
+                    lineHeight = 17.sp
+                ),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color.Gray,
+                    unfocusedBorderColor = Color.LightGray,
+                    cursorColor = ReviewTeal
+                )
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Jana sees this with your decision.",
+                fontSize = 10.sp,
+                color = Color.Gray
+            )
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        // Decision buttons
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.White)
+                .padding(
+                    horizontal = 16.dp,
+                    vertical = 10.dp
+                )
+        ) {
+            Button(
+                onClick = onApprove,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(46.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ReviewNavy
+                )
+            ) {
+                Text(
+                    text = "✓  Approve",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onReturn,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = ReviewNavy
+                    )
                 ) {
                     Text(
-                        text = "▣  $evidenceFileName",
-                        modifier = Modifier.padding(
-                            horizontal = 12.dp,
-                            vertical = 7.dp
-                        ),
-                        fontSize = 11.sp,
-                        color = Teal
+                        text = "Return",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        showIncompleteDialog = true
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = ReviewRed
+                    )
+                ) {
+                    Text(
+                        text = "Incomplete",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Your Review
-        Text(
-            text = "YOUR REVIEW",
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            color = DeepNavy
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        OutlinedTextField(
-            value = feedback,
-            onValueChange = { feedback = it },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(105.dp),
-            placeholder = {
-                Text(
-                    "Write your feedback...",
-                    fontSize = 12.sp
-                )
-            },
-            shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = PearlAqua,
-                unfocusedBorderColor = Color.LightGray,
-                focusedTextColor = DeepNavy,
-                unfocusedTextColor = DeepNavy,
-                cursorColor = Teal
-            ),
-            textStyle = LocalTextStyle.current.copy(
-                fontSize = 12.sp
-            )
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "Jana sees this with your decision.",
-            fontSize = 10.sp,
-            color = Color.Gray
-        )
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        // Approve Button
-        Button(
-            onClick = {
-                onApprove(feedback)
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(44.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = DeepNavy
-            )
-        ) {
-            Text(
-                text = "✓  Approve",
-                color = Color.White,
-                fontSize = 13.sp
-            )
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Return and Incomplete Buttons
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            OutlinedButton(
-                onClick = {
-                    onReturn(feedback)
-                },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(42.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = DeepNavy
-                )
-            ) {
-                Text(
-                    "Return",
-                    fontSize = 12.sp
-                )
-            }
-
-            OutlinedButton(
-                onClick = {
-                    showIncompleteDialog = true
-                },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(42.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = Color(0xFFC62828)
-                )
-            ) {
-                Text(
-                    "Incomplete",
-                    fontSize = 12.sp
-                )
-            }
-        }
+        // AppBottomBar(role) will be connected here
+        // by the project navigation integration.
     }
 
-    // Mark Incomplete Dialog
     if (showIncompleteDialog) {
         MarkIncompleteDialog(
             onDismiss = {
@@ -302,7 +372,7 @@ fun ReviewTaskScreen(
             },
             onConfirm = {
                 showIncompleteDialog = false
-                onIncomplete(feedback)
+                onIncomplete()
             }
         )
     }
@@ -311,7 +381,5 @@ fun ReviewTaskScreen(
 @Preview(showBackground = true)
 @Composable
 fun ReviewTaskScreenPreview() {
-    MASARAKTheme {
-        ReviewTaskScreen()
-    }
+    ReviewTaskScreen()
 }
