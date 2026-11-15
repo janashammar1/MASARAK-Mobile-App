@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.School
+import androidx.compose.material.icons.outlined.WorkOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -42,7 +43,8 @@ data class ChatConversation(
     val lastMessage: String,
     val time: String,
     val unreadCount: Int = 0,
-    val isAcademic: Boolean = false
+    val isAcademic: Boolean = false,
+    val isFieldSupervisor: Boolean = false
 )
 
 @Composable
@@ -122,8 +124,8 @@ private fun ConversationItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .defaultMinSize(minHeight = 68.dp)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .defaultMinSize(minHeight = 48.dp)
+            .padding(horizontal = 12.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(modifier = Modifier.size(38.dp)) {
@@ -131,8 +133,11 @@ private fun ConversationItem(
                 modifier = Modifier
                     .size(34.dp)
                     .background(
-                        color = if (conversation.isAcademic) Color(0xFFE8E8F5)
-                        else Color(0xFFD9F2EF),
+                        color = when {
+                            conversation.isAcademic -> Color(0xFFE8E8F5)
+                            conversation.isFieldSupervisor -> Color(0xFFFFF0CC)
+                            else -> Color(0xFFD9F2EF)
+                        },
                         shape = CircleShape
                     ),
                 contentAlignment = Alignment.Center
@@ -141,8 +146,11 @@ private fun ConversationItem(
                     text = conversation.initials,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (conversation.isAcademic) AcademicInitialsColor
-                    else StudentInitialsColor
+                    color = when {
+                        conversation.isAcademic -> AcademicInitialsColor
+                        conversation.isFieldSupervisor -> Color(0xFF80621F)
+                        else -> StudentInitialsColor
+                    }
                 )
             }
 
@@ -156,13 +164,17 @@ private fun ConversationItem(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = if (conversation.isAcademic) {
-                            Icons.Outlined.AccountBalance
-                        } else {
-                            Icons.Outlined.School
+                        imageVector = when {
+                            conversation.isAcademic -> Icons.Outlined.AccountBalance
+                            conversation.isFieldSupervisor -> Icons.Outlined.WorkOutline
+                            else -> Icons.Outlined.School
                         },
                         contentDescription = null,
-                        tint = if (conversation.isAcademic) Navy else StudentTeal,
+                        tint = when {
+                            conversation.isAcademic -> Navy
+                            conversation.isFieldSupervisor -> Color(0xFF80621F)
+                            else -> StudentTeal
+                        },
                         modifier = Modifier.size(9.dp)
                     )
                 }
@@ -190,8 +202,11 @@ private fun ConversationItem(
                 text = buildAnnotatedString {
                     withStyle(
                         SpanStyle(
-                            color = if (conversation.isAcademic) Color(0xFF64648A)
-                            else StudentTeal,
+                            color = when {
+                                conversation.isAcademic -> Color(0xFF64648A)
+                                conversation.isFieldSupervisor -> Color(0xFF9A7624)
+                                else -> StudentTeal
+                            },
                             fontWeight = FontWeight.Medium
                         )
                     ) {
@@ -251,22 +266,98 @@ private fun ConversationItem(
     }
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 800)
+@Preview(name = "Student", showBackground = true, widthDp = 360, heightDp = 800)
 @Composable
-fun ChatScreenPreview() {
+fun ChatScreenStudentPreview() {
     ChatScreen(
         conversations = listOf(
             ChatConversation(
-                "1", "SA", "Sara Alqahtani", "Student",
-                "You: Got them. Please submit the task too so I can...", "08:50"
+                conversationId = "student-field-supervisor",
+                initials = "KA",
+                name = "Eng. Khalid Alotaibi",
+                role = "Field Supervisor",
+                lastMessage = "Got them. Please submit the task too so I...",
+                time = "08:50",
+                unreadCount = 2,
+                isFieldSupervisor = true
             ),
             ChatConversation(
-                "2", "HZ", "Dr. Huda Alzahrani", "Academic Supervisor",
-                "Thank you. I'll look out for them.", "08:22", 1, true
+                conversationId = "student-academic-supervisor",
+                initials = "HZ",
+                name = "Dr. Huda Alzahrani",
+                role = "Academic Supervisor",
+                lastMessage = "See you on Thursday.",
+                time = "Sun",
+                isAcademic = true
+            )
+        )
+    )
+}
+
+@Preview(name = "Field Supervisor", showBackground = true, widthDp = 360, heightDp = 800)
+@Composable
+fun ChatScreenFieldSupervisorPreview() {
+    ChatScreen(
+        conversations = listOf(
+            ChatConversation(
+                conversationId = "field-academic-supervisor",
+                initials = "KA",
+                name = "Eng. Khalid Alotaibi",
+                role = "Field Supervisor",
+                lastMessage = "You: Thank you. I'll look out for them.",
+                time = "08:22",
+                isFieldSupervisor = true
             ),
             ChatConversation(
-                "3", "JA", "Jana Alharbi", "Student",
-                "I'll send the form today.", "Sun"
+                conversationId = "field-student-sara",
+                initials = "SA",
+                name = "Sara Alqahtani",
+                role = "Student",
+                lastMessage = "You: See you on Thursday.",
+                time = "Sun"
+            ),
+            ChatConversation(
+                conversationId = "field-student-jana",
+                initials = "JA",
+                name = "Jana Alharbi",
+                role = "Student",
+                lastMessage = "Week 3 went well so far.",
+                time = "Sat"
+            )
+        )
+    )
+}
+
+@Preview(name = "Academic Supervisor", showBackground = true, widthDp = 360, heightDp = 800)
+@Composable
+fun ChatScreenAcademicSupervisorPreview() {
+    ChatScreen(
+        conversations = listOf(
+            ChatConversation(
+                conversationId = "academic-student-sara",
+                initials = "SA",
+                name = "Sara Alqahtani",
+                role = "Student",
+                lastMessage = "You: Got them. Please submit the task too so I can review...",
+                time = "08:50"
+            ),
+            ChatConversation(
+                conversationId = "academic-self-huda",
+                initials = "HZ",
+                name = "Dr. Huda Alzahrani",
+                role = "Academic Supervisor",
+                lastMessage = "Thank you. I'll look out for them.",
+                time = "08:22",
+                unreadCount = 1,
+                isAcademic = true
+            ),
+            ChatConversation(
+                conversationId = "academic-student-jana",
+                initials = "JA",
+                name = "Jana Alharbi",
+                role = "Student",
+                lastMessage = "I'll send the form today.",
+                time = "Sun"
             )
         )
     )
