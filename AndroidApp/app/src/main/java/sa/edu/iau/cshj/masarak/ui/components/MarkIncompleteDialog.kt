@@ -3,15 +3,15 @@ package sa.edu.iau.cshj.masarak.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -22,84 +22,92 @@ fun MarkIncompleteDialog(
     onConfirm: () -> Unit
 ) {
     val red = Color(0xFFC62828)
-    val navy = Color(0xFF0C0D45)
+    val navy = Color(0xFF171725)
     val teal = Color(0xFF00696E)
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(28.dp),
             color = Color.White,
             shadowElevation = 8.dp
         ) {
             Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier.padding(28.dp),
+                horizontalAlignment = Alignment.Start
             ) {
-                // Warning icon
+                // Error icon
                 Box(
                     modifier = Modifier
-                        .size(42.dp)
+                        .size(72.dp)
                         .background(
-                            Color(0xFFFFE5E5),
-                            CircleShape
+                            color = Color(0xFFFFE5E5),
+                            shape = RoundedCornerShape(24.dp)
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "!",
-                        color = red,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold
+                    Icon(
+                        imageVector = Icons.Outlined.Cancel,
+                        contentDescription = "Incomplete warning",
+                        tint = red,
+                        modifier = Modifier.size(42.dp)
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(26.dp))
 
                 Text(
                     text = "Mark as incomplete?",
-                    fontSize = 18.sp,
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     color = navy
                 )
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
                     text = "This closes the task. Jana will see your feedback.",
-                    fontSize = 13.sp,
-                    color = Color.DarkGray,
-                    textAlign = TextAlign.Center
+                    fontSize = 18.sp,
+                    lineHeight = 25.sp,
+                    color = Color(0xFF666666)
                 )
 
-                Spacer(modifier = Modifier.height(22.dp))
+                Spacer(modifier = Modifier.height(32.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f)
+                        onClick = onDismiss
                     ) {
                         Text(
                             text = "Cancel",
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold,
                             color = teal
                         )
                     }
 
+                    Spacer(modifier = Modifier.width(12.dp))
+
                     Button(
                         onClick = onConfirm,
-                        modifier = Modifier.weight(1.5f),
-                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.height(56.dp),
+                        shape = RoundedCornerShape(18.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = red
+                        ),
+                        contentPadding = PaddingValues(
+                            horizontal = 22.dp,
+                            vertical = 12.dp
                         )
                     ) {
                         Text(
                             text = "Mark Incomplete",
-                            fontSize = 11.sp,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
                     }

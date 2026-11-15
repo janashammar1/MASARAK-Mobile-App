@@ -1,29 +1,39 @@
-
 package sa.edu.iau.cshj.masarak.ui.screens.chat
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccountBalance
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.School
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import sa.edu.iau.cshj.masarak.ui.components.AppBottomBar
+import sa.edu.iau.cshj.masarak.ui.components.BottomBarItem
 
 private val Navy = Color(0xFF0C0D45)
-private val Teal = Color(0xFF65D6D0)
-private val ScreenBackground = Color(0xFFF7F6F5)
+private val StudentTeal = Color(0xFF398D90)
+private val ScreenBackground = Color(0xFFF8F7F4)
+private val StudentInitialsColor = Color(0xFF15565A)
+private val AcademicInitialsColor = Color(0xFF303052)
 
-// Conversation data
 data class ChatConversation(
     val conversationId: String,
     val initials: String,
@@ -38,7 +48,8 @@ data class ChatConversation(
 @Composable
 fun ChatScreen(
     conversations: List<ChatConversation> = emptyList(),
-    onConversationClick: (String) -> Unit = {}
+    onConversationClick: (String) -> Unit = {},
+    onBottomBarItemSelected: (BottomBarItem) -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -46,49 +57,35 @@ fun ChatScreen(
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFFE2ECF9),
-                        ScreenBackground,
+                        Color(0xFFDCE9F7),
+                        Color(0xFFF4F4F3),
                         ScreenBackground
                     )
                 )
             )
     ) {
-        // Screen title
         Text(
             text = "Chat",
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             color = Navy,
-            modifier = Modifier.padding(
-                start = 18.dp,
-                top = 20.dp,
-                bottom = 22.dp
-            )
+            modifier = Modifier.padding(start = 18.dp, top = 20.dp, bottom = 28.dp)
         )
 
-        // Conversations card
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
                 .border(
-                    width = 1.dp,
-                    color = Color(0xFFE2E2E2),
-                    shape = RoundedCornerShape(16.dp)
-                )
-                .background(
-                    Color.White,
+                    BorderStroke(1.dp, Color(0xFFE1E1E1)),
                     RoundedCornerShape(16.dp)
                 )
+                .background(Color.White, RoundedCornerShape(16.dp))
         ) {
             conversations.forEachIndexed { index, conversation ->
-
-                ConversationItem(
-                    conversation = conversation,
-                    onClick = {
-                        onConversationClick(conversation.conversationId)
-                    }
-                )
+                ConversationItem(conversation) {
+                    onConversationClick(conversation.conversationId)
+                }
 
                 if (index < conversations.lastIndex) {
                     HorizontalDivider(
@@ -99,22 +96,20 @@ fun ChatScreen(
             }
         }
 
-        // Information text
         Text(
             text = "Chat is for quick questions. Task feedback and attendance stay in their own sections.",
             fontSize = 10.sp,
-            color = Color.DarkGray,
+            color = Color(0xFF55545A),
             lineHeight = 14.sp,
-            modifier = Modifier.padding(
-                horizontal = 18.dp,
-                vertical = 12.dp
-            )
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
         )
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // AppBottomBar(role) will be connected here
-        // by the project navigation integration.
+        AppBottomBar(
+            selectedItem = BottomBarItem.Chat,
+            onItemSelected = onBottomBarItemSelected
+        )
     }
 }
 
@@ -126,22 +121,18 @@ private fun ConversationItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .clickable(onClick = onClick)
+            .defaultMinSize(minHeight = 68.dp)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Avatar with role indicator
-        Box(
-            modifier = Modifier.size(42.dp)
-        ) {
+        Box(modifier = Modifier.size(38.dp)) {
             Box(
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(34.dp)
                     .background(
-                        color = if (conversation.isAcademic)
-                            Color(0xFFE8E8F5)
-                        else
-                            Color(0xFFDDF4F1),
+                        color = if (conversation.isAcademic) Color(0xFFE8E8F5)
+                        else Color(0xFFD9F2EF),
                         shape = CircleShape
                     ),
                 contentAlignment = Alignment.Center
@@ -150,34 +141,39 @@ private fun ConversationItem(
                     text = conversation.initials,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (conversation.isAcademic)
-                        Color(0xFF55557A)
-                    else
-                        Teal
+                    color = if (conversation.isAcademic) AcademicInitialsColor
+                    else StudentInitialsColor
                 )
             }
 
-            Box(
+            Surface(
                 modifier = Modifier
                     .size(15.dp)
-                    .align(Alignment.BottomEnd)
-                    .background(Color.White, CircleShape)
-                    .border(1.dp, Color.White, CircleShape),
-                contentAlignment = Alignment.Center
+                    .align(Alignment.BottomEnd),
+                shape = CircleShape,
+                color = Color.White,
+                border = BorderStroke(0.5.dp, Color(0xFFE7E7E7))
             ) {
-                Text(
-                    text = if (conversation.isAcademic) "♜" else "♙",
-                    fontSize = 8.sp,
-                    color = Navy
-                )
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = if (conversation.isAcademic) {
+                            Icons.Outlined.AccountBalance
+                        } else {
+                            Icons.Outlined.School
+                        },
+                        contentDescription = null,
+                        tint = if (conversation.isAcademic) Navy else StudentTeal,
+                        modifier = Modifier.size(9.dp)
+                    )
+                }
             }
         }
 
-        Spacer(modifier = Modifier.width(10.dp))
+        Spacer(modifier = Modifier.width(9.dp))
 
-        // Name, role and last message
         Column(
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.Center
         ) {
             Text(
                 text = conversation.name,
@@ -190,100 +186,87 @@ private fun ConversationItem(
 
             Spacer(modifier = Modifier.height(2.dp))
 
-            Row {
-                Text(
-                    text = "${conversation.role} · ",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Teal,
-                    maxLines = 1
-                )
-
-                Text(
-                    text = conversation.lastMessage,
-                    fontSize = 10.sp,
-                    color = Color.DarkGray,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+            Text(
+                text = buildAnnotatedString {
+                    withStyle(
+                        SpanStyle(
+                            color = if (conversation.isAcademic) Color(0xFF64648A)
+                            else StudentTeal,
+                            fontWeight = FontWeight.Medium
+                        )
+                    ) {
+                        append("${conversation.role} · ")
+                    }
+                    withStyle(SpanStyle(color = Color(0xFF5E5D63))) {
+                        append(conversation.lastMessage)
+                    }
+                },
+                fontSize = 9.5.sp,
+                lineHeight = 12.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
         }
 
-        Spacer(modifier = Modifier.width(6.dp))
+        Spacer(modifier = Modifier.width(5.dp))
 
-        // Time, unread count and arrow
         Column(
-            horizontalAlignment = Alignment.End
+            modifier = Modifier.widthIn(min = 27.dp),
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.Center
         ) {
             Text(
                 text = conversation.time,
                 fontSize = 9.sp,
-                color = Color.Gray
+                color = Color.Gray,
+                maxLines = 1
             )
 
             if (conversation.unreadCount > 0) {
                 Spacer(modifier = Modifier.height(4.dp))
-
                 Box(
                     modifier = Modifier
-                        .size(16.dp)
-                        .background(
-                            Color(0xFFC62828),
-                            CircleShape
-                        ),
+                        .size(14.dp)
+                        .background(Color(0xFFC62828), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = conversation.unreadCount.toString(),
                         color = Color.White,
-                        fontSize = 9.sp,
+                        fontSize = 8.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(4.dp))
 
-        Text(
-            text = "›",
-            fontSize = 23.sp,
-            color = Color.DarkGray
+        Icon(
+            imageVector = Icons.Outlined.ChevronRight,
+            contentDescription = "Open conversation",
+            tint = Color(0xFF4E4E55),
+            modifier = Modifier.size(19.dp)
         )
     }
 }
 
-// Preview with Figma sample data
-@Preview(showBackground = true)
+@Preview(showBackground = true, widthDp = 360, heightDp = 800)
 @Composable
 fun ChatScreenPreview() {
     ChatScreen(
         conversations = listOf(
             ChatConversation(
-                conversationId = "1",
-                initials = "SA",
-                name = "Sara Alqahtani",
-                role = "Student",
-                lastMessage = "You: Got them. Please submit the task too so I can...",
-                time = "08:50"
+                "1", "SA", "Sara Alqahtani", "Student",
+                "You: Got them. Please submit the task too so I can...", "08:50"
             ),
             ChatConversation(
-                conversationId = "2",
-                initials = "HZ",
-                name = "Dr. Huda Alzahrani",
-                role = "Academic Supervisor",
-                lastMessage = "Thank you. I'll look out for them.",
-                time = "08:22",
-                unreadCount = 1,
-                isAcademic = true
+                "2", "HZ", "Dr. Huda Alzahrani", "Academic Supervisor",
+                "Thank you. I'll look out for them.", "08:22", 1, true
             ),
             ChatConversation(
-                conversationId = "3",
-                initials = "JA",
-                name = "Jana Alharbi",
-                role = "Student",
-                lastMessage = "I'll send the form today.",
-                time = "Sun"
+                "3", "JA", "Jana Alharbi", "Student",
+                "I'll send the form today.", "Sun"
             )
         )
     )
