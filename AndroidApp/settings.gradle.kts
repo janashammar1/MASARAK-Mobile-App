@@ -1,3 +1,5 @@
+java.util.Locale.setDefault(java.util.Locale.US)
+
 pluginManagement {
     repositories {
         google {
