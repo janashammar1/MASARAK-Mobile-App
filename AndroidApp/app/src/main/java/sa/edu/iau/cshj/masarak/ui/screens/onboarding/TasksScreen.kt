@@ -1,5 +1,11 @@
-
 package sa.edu.iau.cshj.masarak.ui.screens.onboarding
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.filled.BatteryFull
+import androidx.compose.material.icons.filled.SignalCellularAlt
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -13,7 +19,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Cancel
-import androidx.compose.material.icons.filled.CheckCircleOutline
+import androidx.compose.material.icons.outlined.TaskAlt
+import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material.icons.filled.Contrast
@@ -22,6 +29,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -31,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import sa.edu.iau.cshj.masarak.data.entity.TaskReviewEntity
 import sa.edu.iau.cshj.masarak.data.entity.TaskSubmissionEntity
 import sa.edu.iau.cshj.masarak.ui.components.AppBottomBar
+import sa.edu.iau.cshj.masarak.ui.components.BottomBarItem
 import sa.edu.iau.cshj.masarak.ui.theme.DeepNavy
 import sa.edu.iau.cshj.masarak.ui.theme.MASARAKTheme
 import sa.edu.iau.cshj.masarak.ui.viewmodel.TaskViewModel
@@ -46,12 +55,26 @@ private data class TaskItem(
     val status: String
 )
 
+private val demoTaskRows = listOf(
+    sampleTask.copy(hours = "2 h") to "Returned for Updates",
+    TaskDetails("Build the sign-up form", "Today", "5 h", "Individual", "Built the sign-up form.", TaskStatus.WAITING_REVIEW) to "Waiting for Field Review",
+    TaskDetails("Build the login API", "10 Sep", "6 h", "Individual", "Built the login endpoint.", TaskStatus.WAITING_REVIEW) to "Waiting for Academic Review",
+    TaskDetails("Connect login to the app", "9 Sep", "4 h", "Team", "Connected the login UI to the app.", TaskStatus.PARTIALLY_RELEVANT) to "Partially Relevant",
+    TaskDetails("Design the database", "8 Sep", "8 h", "Team", "Designed the database schema.", TaskStatus.RELEVANT) to "Relevant",
+    TaskDetails("Organise the shared drive", "7 Sep", "3 h", "Individual", "Organised the shared files.", TaskStatus.NOT_RELEVANT) to "Not Relevant",
+    TaskDetails("Update the team calendar", "4 Sep", "2 h", "Individual", "Updated the team calendar.", TaskStatus.NOT_RELEVANT) to "Not Relevant",
+    TaskDetails("Set up CI pipeline", "10 Sep", "3 h", "Team", "Started setting up the CI pipeline.", TaskStatus.INCOMPLETE) to "Incomplete"
+)
+
 @Composable
 fun TasksScreen(
     taskViewModel: TaskViewModel? = null,
     recordId: Long? = null,
     onTaskClick: (TaskDetails) -> Unit = {},
-    onAddTask: () -> Unit = {}
+    onAddTask: () -> Unit = {},
+    onBackClick: () -> Unit = {},
+    previewFrame: Boolean = false,
+    previewScrolled: Boolean = false
 ) {
     val tasks by (
             taskViewModel?.tasks?.collectAsState()
@@ -75,7 +98,26 @@ fun TasksScreen(
     }
 
     Scaffold(
-        containerColor = Color(0xFFF7F5F3),
+        containerColor = Color.Transparent,
+        modifier = Modifier.fillMaxSize().background(
+            Brush.verticalGradient(0f to Color(0xFFDCE7F5), .23f to Color(0xFFF7F5F3))
+        ),
+        bottomBar = {
+            Column(Modifier.fillMaxWidth().background(DeepNavy)
+                .then(if (previewFrame) Modifier else Modifier.navigationBarsPadding())) {
+                AppBottomBar(
+                    selectedItem = BottomBarItem.Home,
+                    thirdTabLabel = "My Training",
+                    chatUnreadCount = 2
+                )
+                if (previewFrame) {
+                    Box(Modifier.fillMaxWidth().height(18.dp), contentAlignment = Alignment.Center) {
+                        Box(Modifier.width(104.dp).height(3.dp)
+                            .background(Color.White.copy(alpha = .45f), CircleShape))
+                    }
+                }
+            }
+        },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onAddTask,
@@ -116,17 +158,29 @@ fun TasksScreen(
                 .padding(horizontal = 16.dp)
         ) {
 
+            if (previewFrame) {
+                Box(Modifier.fillMaxWidth().height(32.dp), contentAlignment = Alignment.Center) {
+                    Text("9:41", Modifier.align(Alignment.CenterStart).padding(start = 4.dp),
+                        color = DeepNavy, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Box(Modifier.size(15.dp).background(DeepNavy, CircleShape))
+                    Row(Modifier.align(Alignment.CenterEnd), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                        listOf(Icons.Default.SignalCellularAlt, Icons.Default.Wifi, Icons.Default.BatteryFull).forEach {
+                            Icon(it, null, Modifier.size(15.dp), tint = DeepNavy)
+                        }
+                    }
+                }
+            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 12.dp, bottom = 14.dp),
+                    .padding(top = 15.dp, bottom = 19.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
                     tint = DeepNavy,
-                    modifier = Modifier.size(21.dp)
+                    modifier = Modifier.size(21.dp).clickable(onClick = onBackClick)
                 )
 
                 Spacer(modifier = Modifier.width(12.dp))
@@ -141,9 +195,23 @@ fun TasksScreen(
 
             when {
                 taskViewModel == null || recordId == null -> {
-                    EmptyTasksMessage(
-                        message = "Tasks are not connected yet"
-                    )
+                    val previousCardOffset = with(LocalDensity.current) { 94.dp.roundToPx() }
+                    LazyColumn(
+                        state = rememberLazyListState(
+                            initialFirstVisibleItemIndex = if (previewScrolled) 2 else 0,
+                            initialFirstVisibleItemScrollOffset = if (previewScrolled) previousCardOffset else 0
+                        ),
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(top = 12.dp, bottom = 90.dp)
+                    ) {
+                        items(demoTaskRows, key = { it.first.title }) { (task, statusLabel) ->
+                            TaskCard(
+                                task = TaskItem(task.title, task.hours, task.type, task.date, statusLabel),
+                                onClick = { onTaskClick(task) }
+                            )
+                        }
+                    }
                 }
 
                 tasks.isEmpty() -> {
@@ -251,24 +319,27 @@ private fun TaskCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = if (task.status == "Incomplete") 99.dp else 105.dp)
             .clickable { onClick() },
-        shape = RoundedCornerShape(15.dp),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, Color(0xFFE0DEDA)),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFFFFFEF8)
+            containerColor = Color.White
         ),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = 1.dp
+            defaultElevation = 0.dp
         )
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 9.dp),
+                .padding(horizontal = 14.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(29.dp)
+                    .size(38.dp)
+                    .align(Alignment.Top)
                     .background(
                         Color(0xFFE9E8F0),
                         RoundedCornerShape(9.dp)
@@ -276,21 +347,21 @@ private fun TaskCard(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.CheckCircleOutline,
+                    imageVector = Icons.Outlined.TaskAlt,
                     contentDescription = null,
                     tint = DeepNavy,
-                    modifier = Modifier.size(17.dp)
+                    modifier = Modifier.size(21.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.width(9.dp))
+            Spacer(modifier = Modifier.width(11.dp))
 
             Column(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
                     text = task.title,
-                    fontSize = 12.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = DeepNavy
                 )
@@ -303,7 +374,7 @@ private fun TaskCard(
                         task.type,
                         task.date
                     ).filter { it.isNotBlank() }.joinToString(" · "),
-                    fontSize = 9.sp,
+                    fontSize = 12.sp,
                     color = Color(0xFF666666)
                 )
 
@@ -329,38 +400,38 @@ private fun StatusChip(status: String) {
 
         "Returned for Updates" -> Triple(
             Color(0xFFFFD087),
-            Color(0xFF785A00),
+            Color(0xFF382400),
             Icons.Default.Autorenew
         )
 
         "Waiting for Field Review",
         "Waiting for Academic Review" -> Triple(
             Color(0xFFE8E6DD),
-            Color(0xFF55534B),
+            Color(0xFF33343B),
             Icons.Default.Schedule
         )
 
         "Partially Relevant" -> Triple(
             Color(0xFFFFD98A),
-            Color(0xFF785A00),
+            Color(0xFF382400),
             Icons.Default.Contrast
         )
 
         "Relevant" -> Triple(
             Color(0xFFC7ECC5),
-            Color(0xFF245B35),
+            Color(0xFF103C20),
             Icons.Default.Circle
         )
 
         "Not Relevant" -> Triple(
             Color(0xFFFFDAD6),
-            Color(0xFF9B3434),
-            Icons.Default.Circle
+            Color(0xFF59191D),
+            Icons.Outlined.RadioButtonUnchecked
         )
 
         "Incomplete" -> Triple(
-            Color(0xFFF1D5D5),
-            Color(0xFF8B3030),
+            Color(0xFFFFDAD6),
+            Color(0xFF59191D),
             Icons.Default.Cancel
         )
 
@@ -373,8 +444,8 @@ private fun StatusChip(status: String) {
 
     Row(
         modifier = Modifier
-            .background(backgroundColor, CircleShape)
-            .padding(horizontal = 7.dp, vertical = 3.dp),
+            .background(backgroundColor, RoundedCornerShape(6.dp))
+            .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
@@ -382,13 +453,14 @@ private fun StatusChip(status: String) {
             imageVector = icon,
             contentDescription = null,
             tint = textColor,
-            modifier = Modifier.size(10.dp)
+            modifier = Modifier.size(13.dp)
         )
 
         Text(
             text = status,
-            fontSize = 8.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontSize = 12.sp,
+            lineHeight = 16.sp,
+            fontWeight = FontWeight.Bold,
             color = textColor
         )
     }
@@ -488,27 +560,14 @@ private fun TaskSubmissionEntity.toTaskDetails(
     )
 }
 
-@Preview(
-    showBackground = true,
-    showSystemUi = true,
-    name = "Tasks Screen"
-)
+@Preview(name = "Tasks · Start", widthDp = 390, heightDp = 870)
 @Composable
 private fun TasksScreenPreview() {
-    MASARAKTheme {
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            Box(
-                modifier = Modifier.weight(1f)
-            ) {
-                TasksScreen()
-            }
+    MASARAKTheme { TasksScreen(previewFrame = true) }
+}
 
-            AppBottomBar(
-                selectedItem = null,
-                onItemSelected = {}
-            )
-        }
-    }
+@Preview(name = "Tasks · Scrolled", widthDp = 390, heightDp = 870)
+@Composable
+private fun TasksScrolledPreview() {
+    MASARAKTheme { TasksScreen(previewFrame = true, previewScrolled = true) }
 }

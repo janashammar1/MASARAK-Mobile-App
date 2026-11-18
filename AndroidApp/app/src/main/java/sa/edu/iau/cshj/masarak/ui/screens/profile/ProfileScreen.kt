@@ -473,3 +473,32 @@ private fun AcademicProfilePreview() {
         )
     }
 }
+
+internal fun demoProfile(role: String): ProfilePerson = when (role) {
+    "field" -> ProfilePerson(
+        name = "Eng. Khalid Alotaibi",
+        email = "k.alotaibi@nakheeltech.sa",
+        initials = "KA",
+        role = ProfileRole.FIELD,
+        organization = "Nakheel Tech",
+        linkedPeople = 6,
+        linkedSupervisors = 1
+    )
+    "academic" -> ProfilePerson(
+        name = "Dr. Huda Alzahrani",
+        email = "h.alzahrani@uni.edu.sa",
+        initials = "HZ",
+        role = ProfileRole.ACADEMIC,
+        linkedPeople = 6,
+        linkedSupervisors = 1
+    )
+    else -> ProfilePerson(
+        name = "Sara Alqahtani",
+        email = "s.alqahtani@uni.edu.sa",
+        initials = "SA",
+        role = ProfileRole.STUDENT,
+        fieldSupervisor = "Eng. Khalid Alotaibi",
+        fieldOrganization = "Nakheel Tech",
+        pendingAcademicRequest = "Dr. Huda Alzahrani"
+    )
+}

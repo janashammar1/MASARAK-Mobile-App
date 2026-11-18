@@ -1,4 +1,3 @@
-
 package sa.edu.iau.cshj.masarak.ui.screens.onboarding
 
 import androidx.compose.foundation.background
@@ -61,7 +60,7 @@ data class TaskDetails(
     val evidence: List<String> = emptyList()
 )
 
-private val sampleTask = TaskDetails(
+internal val sampleTask = TaskDetails(
     title = "Fix the navigation bug",
     date = "11 Sep",
     hours = "2h",

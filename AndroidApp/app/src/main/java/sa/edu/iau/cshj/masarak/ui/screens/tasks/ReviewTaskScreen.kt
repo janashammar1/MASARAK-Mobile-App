@@ -1,4 +1,3 @@
-
 package sa.edu.iau.cshj.masarak.ui.screens.tasks
 
 import androidx.compose.foundation.background
@@ -41,6 +40,25 @@ fun ReviewTaskScreen(
     onBack: () -> Unit = {},
     onBottomBarItemSelected: (BottomBarItem) -> Unit = {}
 ) {
+    ReviewTaskScreen(
+        onApprove = onApprove,
+        onReturn = onReturn,
+        onIncomplete = onIncomplete,
+        onBack = onBack,
+        chatUnreadCount = 0,
+        onBottomBarItemSelected = onBottomBarItemSelected
+    )
+}
+
+@Composable
+fun ReviewTaskScreen(
+    onApprove: () -> Unit = {},
+    onReturn: () -> Unit = {},
+    onIncomplete: () -> Unit = {},
+    onBack: () -> Unit = {},
+    chatUnreadCount: Int,
+    onBottomBarItemSelected: (BottomBarItem) -> Unit = {}
+) {
     var feedback by remember {
         mutableStateOf("Clean layout. Please add the empty state next time.")
     }
@@ -61,12 +79,13 @@ fun ReviewTaskScreen(
                     )
                 )
             )
+            .statusBarsPadding()
     ) {
         // Top bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 12.dp),
+                .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
@@ -113,7 +132,7 @@ fun ReviewTaskScreen(
                 )
             ) {
                 Column(
-                    modifier = Modifier.padding(18.dp)
+                    modifier = Modifier.padding(14.dp)
                 ) {
                     Text(
                         text = "Build the profile screen",
@@ -122,14 +141,14 @@ fun ReviewTaskScreen(
                         color = Color(0xFF202020)
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(38.dp)
+                                .size(32.dp)
                                 .background(
                                     ReviewAqua,
                                     CircleShape
@@ -153,7 +172,7 @@ fun ReviewTaskScreen(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -215,7 +234,7 @@ fun ReviewTaskScreen(
                     }
 
                     HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 14.dp),
+                        modifier = Modifier.padding(vertical = 10.dp),
                         color = Color(0xFFE2E2E2)
                     )
 
@@ -236,7 +255,7 @@ fun ReviewTaskScreen(
                     )
 
                     HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 14.dp),
+                        modifier = Modifier.padding(vertical = 10.dp),
                         color = Color(0xFFE2E2E2)
                     )
 
@@ -256,7 +275,7 @@ fun ReviewTaskScreen(
                         Row(
                             modifier = Modifier.padding(
                                 horizontal = 12.dp,
-                                vertical = 9.dp
+                                vertical = 6.dp
                             ),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -279,7 +298,7 @@ fun ReviewTaskScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(22.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
             // Your review
             Column(
@@ -291,7 +310,7 @@ fun ReviewTaskScreen(
                     color = Color(0xFFE2E2E2)
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
                     text = "YOUR REVIEW",
@@ -300,7 +319,7 @@ fun ReviewTaskScreen(
                     color = Color.Gray
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
                     text = "Feedback",
@@ -309,19 +328,19 @@ fun ReviewTaskScreen(
                     color = ReviewNavy
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 OutlinedTextField(
                     value = feedback,
                     onValueChange = { feedback = it },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(125.dp),
-                    shape = RoundedCornerShape(20.dp),
+                        .height(92.dp),
+                    shape = RoundedCornerShape(14.dp),
                     textStyle = LocalTextStyle.current.copy(
-                        fontSize = 16.sp,
+                        fontSize = 14.sp,
                         color = Color(0xFF555577),
-                        lineHeight = 22.sp
+                        lineHeight = 20.sp
                     ),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Color(0xFFBDBDBD),
@@ -348,8 +367,10 @@ fun ReviewTaskScreen(
                 .fillMaxWidth()
                 .background(Color.White)
                 .padding(
-                    horizontal = 18.dp,
-                    vertical = 10.dp
+                    start = 18.dp,
+                    end = 18.dp,
+                    top = 10.dp,
+                    bottom = 16.dp
                 )
         ) {
             Button(
@@ -415,10 +436,19 @@ fun ReviewTaskScreen(
         }
 
         // Shared bottom navigation
-        AppBottomBar(
-            selectedItem = BottomBarItem.MyTraining,
-            onItemSelected = onBottomBarItemSelected
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(ReviewNavy)
+                .navigationBarsPadding()
+        ) {
+            AppBottomBar(
+                selectedItem = BottomBarItem.MyTraining,
+                thirdTabLabel = "Trainees",
+                chatUnreadCount = chatUnreadCount,
+                onItemSelected = onBottomBarItemSelected
+            )
+        }
     }
 
     // Incomplete confirmation dialog
@@ -435,8 +465,8 @@ fun ReviewTaskScreen(
     }
 }
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun ReviewTaskScreenPreview() {
-    ReviewTaskScreen()
+    ReviewTaskScreen(chatUnreadCount = 1)
 }
