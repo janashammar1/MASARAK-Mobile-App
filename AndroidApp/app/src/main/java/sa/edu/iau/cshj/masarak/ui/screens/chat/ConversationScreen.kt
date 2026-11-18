@@ -54,7 +54,8 @@ fun ConversationScreen(
     contactName: String = "Dr. Huda Alzahrani",
     role: String = "Academic",
     conversationInfo: String? = "You both supervise Sara Alqahtani and Jana Alharbi.",
-    messages: List<ConversationMessage> = academicMessages()
+    messages: List<ConversationMessage> = academicMessages(),
+    thirdTabLabel: String = "My Training"
 ) {
     var message by remember { mutableStateOf("") }
 
@@ -86,6 +87,7 @@ fun ConversationScreen(
                     )
                 )
             )
+            .statusBarsPadding()
     ) {
         // Header
         Row(
@@ -238,10 +240,13 @@ fun ConversationScreen(
             }
         }
 
-        AppBottomBar(
-            selectedItem = BottomBarItem.Chat,
-            onItemSelected = onBottomBarItemSelected
-        )
+        Box(Modifier.fillMaxWidth().background(ConversationNavy).navigationBarsPadding()) {
+            AppBottomBar(
+                selectedItem = BottomBarItem.Chat,
+                thirdTabLabel = thirdTabLabel,
+                onItemSelected = onBottomBarItemSelected
+            )
+        }
     }
 }
 
@@ -366,7 +371,7 @@ private fun MessageBubble(message: ConversationMessage) {
     }
 }
 
-private fun fieldMessages() = listOf(
+internal fun fieldMessages() = listOf(
     ConversationMessage(
         text = "Morning Sara, stand-up moved to 10:00.",
         time = "08:40",
@@ -397,7 +402,7 @@ private fun fieldMessages() = listOf(
     )
 )
 
-private fun studentMessages() = listOf(
+internal fun studentMessages() = listOf(
     ConversationMessage(
         text = "Some recent tasks didn’t match your major. Try asking for API or testing work.",
         time = "Sent · Sun",
@@ -415,7 +420,7 @@ private fun studentMessages() = listOf(
     )
 )
 
-private fun academicMessages() = listOf(
+internal fun academicMessages() = listOf(
     ConversationMessage(
         text = "Sara’s last tasks were Not Relevant. Could she get more backend work?",
         time = "08:05",
@@ -433,35 +438,38 @@ private fun academicMessages() = listOf(
     )
 )
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 800, name = "Field Supervisor")
+@Preview(showBackground = true, widthDp = 360, heightDp = 800, name = "Student")
 @Composable
 fun ConversationScreenFieldPreview() {
     ConversationScreen(
         contactName = "Eng. Khalid Alotaibi",
         role = "Field",
         conversationInfo = null,
-        messages = fieldMessages()
+        messages = fieldMessages(),
+        thirdTabLabel = "My Training"
     )
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 800, name = "Student")
+@Preview(showBackground = true, widthDp = 360, heightDp = 800, name = "Academic Supervisor")
 @Composable
 fun ConversationScreenStudentPreview() {
     ConversationScreen(
         contactName = "Sara Alqahtani",
         role = "Student",
         conversationInfo = null,
-        messages = studentMessages()
+        messages = studentMessages(),
+        thirdTabLabel = "Students"
     )
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 800, name = "Academic Supervisor")
+@Preview(showBackground = true, widthDp = 360, heightDp = 800, name = "Field Supervisor")
 @Composable
 fun ConversationScreenAcademicPreview() {
     ConversationScreen(
         contactName = "Dr. Huda Alzahrani",
         role = "Academic",
         conversationInfo = "You both supervise Sara Alqahtani and Jana Alharbi.",
-        messages = academicMessages()
+        messages = academicMessages(),
+        thirdTabLabel = "Trainees"
     )
 }

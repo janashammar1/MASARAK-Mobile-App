@@ -1,18 +1,15 @@
-
 package sa.edu.iau.cshj.masarak.ui.components
 
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PersonOutline
-import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.WorkOutline
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.outlined.Groups
+import androidx.compose.material.icons.outlined.School
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -32,6 +29,34 @@ fun AppBottomBar(
     selectedItem: BottomBarItem? = null,
     onItemSelected: (BottomBarItem) -> Unit = {}
 ) {
+    AppBottomBar(
+        selectedItem = selectedItem,
+        thirdTabLabel = BottomBarItem.MyTraining.label,
+        onItemSelected = onItemSelected
+    )
+}
+
+@Composable
+fun AppBottomBar(
+    selectedItem: BottomBarItem? = null,
+    thirdTabLabel: String,
+    onItemSelected: (BottomBarItem) -> Unit = {}
+) {
+    AppBottomBar(
+        selectedItem = selectedItem,
+        thirdTabLabel = thirdTabLabel,
+        chatUnreadCount = 0,
+        onItemSelected = onItemSelected
+    )
+}
+
+@Composable
+fun AppBottomBar(
+    selectedItem: BottomBarItem? = null,
+    thirdTabLabel: String,
+    chatUnreadCount: Int,
+    onItemSelected: (BottomBarItem) -> Unit = {}
+) {
     val deepNavy = Color(0xFF0C0D45)
     val pearlAqua = Color(0xFF75CBD1)
 
@@ -42,57 +67,52 @@ fun AppBottomBar(
         tonalElevation = 0.dp
     ) {
         BottomBarItem.values().forEach { item ->
+            val displayLabel = if (item == BottomBarItem.MyTraining) {
+                thirdTabLabel
+            } else {
+                item.label
+            }
+
+            val icon = when (item) {
+                BottomBarItem.Home -> Icons.Filled.Home
+                BottomBarItem.Chat -> Icons.Filled.ChatBubbleOutline
+                BottomBarItem.MyTraining -> when (thirdTabLabel) {
+                    "Trainees" -> Icons.Outlined.Groups
+                    "Students" -> Icons.Outlined.School
+                    else -> Icons.Filled.WorkOutline
+                }
+                BottomBarItem.Profile -> Icons.Filled.PersonOutline
+            }
 
             NavigationBarItem(
                 selected = selectedItem == item,
                 onClick = { onItemSelected(item) },
-
                 icon = {
-                    when (item) {
-                        BottomBarItem.Home -> {
-                            Icon(
-                                Icons.Filled.Home,
-                                contentDescription = item.label,
-                                modifier = Modifier.size(22.dp)
-                            )
+                    if (item == BottomBarItem.Chat && chatUnreadCount > 0) {
+                        BadgedBox(
+                            badge = {
+                                Badge(
+                                    containerColor = Color(0xFFC62828),
+                                    contentColor = Color.White
+                                ) {
+                                    Text(if (chatUnreadCount > 99) "99+" else chatUnreadCount.toString())
+                                }
+                            }
+                        ) {
+                            Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp))
                         }
-
-                        BottomBarItem.Chat -> {
-                            Icon(
-                                Icons.Filled.ChatBubbleOutline,
-                                contentDescription = item.label,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-
-                        BottomBarItem.MyTraining -> {
-                            Icon(
-                                Icons.Filled.WorkOutline,
-                                contentDescription = item.label,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-
-                        BottomBarItem.Profile -> {
-                            Icon(
-                                Icons.Filled.PersonOutline,
-                                contentDescription = item.label,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
+                    } else {
+                        Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp))
                     }
                 },
-
                 label = {
                     Text(
-                        text = item.label,
+                        text = displayLabel,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Medium
                     )
                 },
-
                 alwaysShowLabel = true,
-
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = deepNavy,
                     selectedTextColor = Color.White,

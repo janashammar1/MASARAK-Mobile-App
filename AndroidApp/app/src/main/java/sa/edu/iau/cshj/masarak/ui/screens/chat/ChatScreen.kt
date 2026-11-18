@@ -32,6 +32,7 @@ import sa.edu.iau.cshj.masarak.ui.components.BottomBarItem
 private val Navy = Color(0xFF0C0D45)
 private val StudentTeal = Color(0xFF398D90)
 private val ScreenBackground = Color(0xFFF8F7F4)
+private val AcademicBackground = Color(0xFFF6F6F4)
 private val StudentInitialsColor = Color(0xFF15565A)
 private val AcademicInitialsColor = Color(0xFF303052)
 
@@ -53,19 +54,37 @@ fun ChatScreen(
     onConversationClick: (String) -> Unit = {},
     onBottomBarItemSelected: (BottomBarItem) -> Unit = {}
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFFDCE9F7),
-                        Color(0xFFF4F4F3),
-                        ScreenBackground
-                    )
+    ChatScreen(
+        conversations = conversations,
+        onConversationClick = onConversationClick,
+        thirdTabLabel = "My Training",
+        onBottomBarItemSelected = onBottomBarItemSelected
+    )
+}
+
+@Composable
+fun ChatScreen(
+    conversations: List<ChatConversation> = emptyList(),
+    onConversationClick: (String) -> Unit = {},
+    thirdTabLabel: String,
+    usePlainBackground: Boolean = false,
+    onBottomBarItemSelected: (BottomBarItem) -> Unit = {}
+) {
+    val background = if (usePlainBackground) {
+        Modifier.background(AcademicBackground)
+    } else {
+        Modifier.background(
+            Brush.verticalGradient(
+                colors = listOf(
+                    Color(0xFFDCE9F7),
+                    Color(0xFFF4F4F3),
+                    ScreenBackground
                 )
             )
-    ) {
+        )
+    }
+
+    Column(modifier = Modifier.fillMaxSize().then(background).statusBarsPadding()) {
         Text(
             text = "Chat",
             fontSize = 18.sp,
@@ -108,10 +127,13 @@ fun ChatScreen(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        AppBottomBar(
-            selectedItem = BottomBarItem.Chat,
-            onItemSelected = onBottomBarItemSelected
-        )
+        Box(Modifier.fillMaxWidth().background(Navy).navigationBarsPadding()) {
+            AppBottomBar(
+                selectedItem = BottomBarItem.Chat,
+                thirdTabLabel = thirdTabLabel,
+                onItemSelected = onBottomBarItemSelected
+            )
+        }
     }
 }
 
@@ -266,17 +288,18 @@ private fun ConversationItem(
     }
 }
 
-@Preview(name = "Student", showBackground = true, widthDp = 360, heightDp = 800)
+@Preview(name = "Student - Chat", showBackground = true, widthDp = 360, heightDp = 800)
 @Composable
 fun ChatScreenStudentPreview() {
     ChatScreen(
+        thirdTabLabel = "My Training",
         conversations = listOf(
             ChatConversation(
                 conversationId = "student-field-supervisor",
                 initials = "KA",
                 name = "Eng. Khalid Alotaibi",
                 role = "Field Supervisor",
-                lastMessage = "Got them. Please submit the task too so I...",
+                lastMessage = "Got them. Please submit the task too so I can review it.",
                 time = "08:50",
                 unreadCount = 2,
                 isFieldSupervisor = true
@@ -294,13 +317,15 @@ fun ChatScreenStudentPreview() {
     )
 }
 
-@Preview(name = "Field Supervisor", showBackground = true, widthDp = 360, heightDp = 800)
+@Preview(name = "Academic Supervisor - Chat", showBackground = true, widthDp = 360, heightDp = 800)
 @Composable
-fun ChatScreenFieldSupervisorPreview() {
+fun ChatScreenAcademicSupervisorPreview() {
     ChatScreen(
+        thirdTabLabel = "Students",
+        usePlainBackground = true,
         conversations = listOf(
             ChatConversation(
-                conversationId = "field-academic-supervisor",
+                conversationId = "academic-field-supervisor",
                 initials = "KA",
                 name = "Eng. Khalid Alotaibi",
                 role = "Field Supervisor",
@@ -309,7 +334,7 @@ fun ChatScreenFieldSupervisorPreview() {
                 isFieldSupervisor = true
             ),
             ChatConversation(
-                conversationId = "field-student-sara",
+                conversationId = "academic-student-sara",
                 initials = "SA",
                 name = "Sara Alqahtani",
                 role = "Student",
@@ -317,7 +342,7 @@ fun ChatScreenFieldSupervisorPreview() {
                 time = "Sun"
             ),
             ChatConversation(
-                conversationId = "field-student-jana",
+                conversationId = "academic-student-jana",
                 initials = "JA",
                 name = "Jana Alharbi",
                 role = "Student",
@@ -328,21 +353,22 @@ fun ChatScreenFieldSupervisorPreview() {
     )
 }
 
-@Preview(name = "Academic Supervisor", showBackground = true, widthDp = 360, heightDp = 800)
+@Preview(name = "Field Supervisor - Chat", showBackground = true, widthDp = 360, heightDp = 800)
 @Composable
-fun ChatScreenAcademicSupervisorPreview() {
+fun ChatScreenFieldSupervisorPreview() {
     ChatScreen(
+        thirdTabLabel = "Trainees",
         conversations = listOf(
             ChatConversation(
-                conversationId = "academic-student-sara",
+                conversationId = "field-student-sara",
                 initials = "SA",
                 name = "Sara Alqahtani",
                 role = "Student",
-                lastMessage = "You: Got them. Please submit the task too so I can review...",
+                lastMessage = "You: Got them. Please submit the task too so I can review it.",
                 time = "08:50"
             ),
             ChatConversation(
-                conversationId = "academic-self-huda",
+                conversationId = "field-academic-supervisor",
                 initials = "HZ",
                 name = "Dr. Huda Alzahrani",
                 role = "Academic Supervisor",
@@ -352,7 +378,7 @@ fun ChatScreenAcademicSupervisorPreview() {
                 isAcademic = true
             ),
             ChatConversation(
-                conversationId = "academic-student-jana",
+                conversationId = "field-student-jana",
                 initials = "JA",
                 name = "Jana Alharbi",
                 role = "Student",
@@ -361,4 +387,84 @@ fun ChatScreenAcademicSupervisorPreview() {
             )
         )
     )
+}
+
+internal fun demoConversations(role: String): List<ChatConversation> = when (role) {
+    "student" -> listOf(
+        ChatConversation(
+            conversationId = "student-field-supervisor",
+            initials = "KA",
+            name = "Eng. Khalid Alotaibi",
+            role = "Field Supervisor",
+            lastMessage = "Got them. Please submit the task too so I can review it.",
+            time = "08:50",
+            unreadCount = 2,
+            isFieldSupervisor = true
+        ),
+        ChatConversation(
+            conversationId = "student-academic-supervisor",
+            initials = "HZ",
+            name = "Dr. Huda Alzahrani",
+            role = "Academic Supervisor",
+            lastMessage = "See you on Thursday.",
+            time = "Sun",
+            isAcademic = true
+        )
+    )
+    "academic" -> listOf(
+        ChatConversation(
+            conversationId = "academic-field-supervisor",
+            initials = "KA",
+            name = "Eng. Khalid Alotaibi",
+            role = "Field Supervisor",
+            lastMessage = "You: Thank you. I'll look out for them.",
+            time = "08:22",
+            isFieldSupervisor = true
+        ),
+        ChatConversation(
+            conversationId = "academic-student-sara",
+            initials = "SA",
+            name = "Sara Alqahtani",
+            role = "Student",
+            lastMessage = "You: See you on Thursday.",
+            time = "Sun"
+        ),
+        ChatConversation(
+            conversationId = "academic-student-jana",
+            initials = "JA",
+            name = "Jana Alharbi",
+            role = "Student",
+            lastMessage = "Week 3 went well so far.",
+            time = "Sat"
+        )
+    )
+    "field" -> listOf(
+        ChatConversation(
+            conversationId = "field-student-sara",
+            initials = "SA",
+            name = "Sara Alqahtani",
+            role = "Student",
+            lastMessage = "You: Got them. Please submit the task too so I can review it.",
+            time = "08:50"
+        ),
+        ChatConversation(
+            conversationId = "field-academic-supervisor",
+            initials = "HZ",
+            name = "Dr. Huda Alzahrani",
+            role = "Academic Supervisor",
+            lastMessage = "Thank you. I'll look out for them.",
+            time = "08:22",
+            unreadCount = 1,
+            isAcademic = true
+        ),
+        ChatConversation(
+            conversationId = "field-student-jana",
+            initials = "JA",
+            name = "Jana Alharbi",
+            role = "Student",
+            lastMessage = "I'll send the form today.",
+            time = "Sun"
+        )
+    )
+    else -> emptyList()
 }
