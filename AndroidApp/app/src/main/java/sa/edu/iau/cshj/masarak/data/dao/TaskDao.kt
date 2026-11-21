@@ -1,3 +1,4 @@
+
 package sa.edu.iau.cshj.masarak.data.dao
 
 import androidx.room.Dao
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface TaskDao {
+
     @Query("SELECT * FROM tasks WHERE recordId = :recordId")
     fun getTasksForRecord(recordId: Long): Flow<List<TaskEntity>>
 
@@ -21,6 +23,9 @@ interface TaskDao {
 
     @Query("SELECT * FROM task_submissions WHERE taskId = :taskId")
     fun getSubmissionsForTask(taskId: Long): Flow<List<TaskSubmissionEntity>>
+
+    @Query("SELECT * FROM task_submissions WHERE submissionId = :submissionId LIMIT 1")
+    suspend fun getSubmissionById(submissionId: Long): TaskSubmissionEntity?
 
     @Upsert
     suspend fun insertSubmission(submission: TaskSubmissionEntity): Long

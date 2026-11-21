@@ -8,6 +8,7 @@ import sa.edu.iau.cshj.masarak.data.entity.TaskReviewEntity
 import sa.edu.iau.cshj.masarak.data.entity.TaskSubmissionEntity
 
 class TaskRepository(private val taskDao: TaskDao) {
+
     fun getTasksForRecord(recordId: Long): Flow<List<TaskEntity>> =
         taskDao.getTasksForRecord(recordId)
 
@@ -19,6 +20,9 @@ class TaskRepository(private val taskDao: TaskDao) {
 
     suspend fun insertSubmission(submission: TaskSubmissionEntity): Long =
         taskDao.insertSubmission(submission)
+
+    suspend fun getSubmissionById(submissionId: Long): TaskSubmissionEntity? =
+        taskDao.getSubmissionById(submissionId)
 
     fun getAttachmentsForSubmission(submissionId: Long): Flow<List<TaskAttachmentEntity>> =
         taskDao.getAttachmentsForSubmission(submissionId)

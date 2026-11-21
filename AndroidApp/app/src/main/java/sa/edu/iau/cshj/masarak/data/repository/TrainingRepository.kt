@@ -6,8 +6,11 @@ import sa.edu.iau.cshj.masarak.data.entity.SupervisorLinkEntity
 import sa.edu.iau.cshj.masarak.data.entity.TrainingRecordEntity
 import sa.edu.iau.cshj.masarak.data.entity.TrainingWeekEntity
 import sa.edu.iau.cshj.masarak.data.entity.WeeklyEvaluationEntity
+import sa.edu.iau.cshj.masarak.data.dao.SupervisorPersonRow
 
 class TrainingRepository(private val trainingDao: TrainingDao) {
+    fun getPeopleForSupervisor(supervisorEmail: String): Flow<List<SupervisorPersonRow>> =
+        trainingDao.getPeopleForSupervisor(supervisorEmail)
     fun getTrainingRecordsForStudent(studentId: Long): Flow<List<TrainingRecordEntity>> =
         trainingDao.getTrainingRecordsForStudent(studentId)
 

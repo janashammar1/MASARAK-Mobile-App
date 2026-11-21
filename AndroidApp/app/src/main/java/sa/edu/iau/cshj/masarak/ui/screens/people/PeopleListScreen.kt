@@ -26,6 +26,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import sa.edu.iau.cshj.masarak.ui.viewmodel.TrainingViewModel
+import sa.edu.iau.cshj.masarak.ui.viewmodel.MasarakViewModelFactory
+import sa.edu.iau.cshj.masarak.data.dao.SupervisorPersonRow
 
 internal val PeopleNavy = Color(0xFF0C0D45)
 internal val PeopleInk = Color(0xFF191928)
@@ -40,12 +47,54 @@ internal val PeopleLilac = Color(0xFFE3E4F2)
 fun PeopleListScreen() = PeopleListScreen(isAcademic = true)
 
 @Composable
-fun PeopleListScreen(isAcademic: Boolean, onPersonClick: (String) -> Unit = {}, onLinkClick: () -> Unit = {}) {
-    PeopleListLayout(isAcademic, LocalInspectionMode.current, onPersonClick, onLinkClick)
+fun PeopleListScreen(
+    isAcademic: Boolean,
+    onPersonClick: (String, Long) -> Unit = { _, _ -> },
+    onLinkClick: () -> Unit = {}
+) {
+    val preview = LocalInspectionMode.current
+
+    if (preview) {
+        PeopleListLayout(
+            academic = isAcademic,
+            preview = true,
+            onPersonClick = onPersonClick,
+            onLinkClick = onLinkClick
+        )
+    } else {
+        val trainingViewModel: TrainingViewModel =
+            viewModel(factory = MasarakViewModelFactory())
+
+        val people by trainingViewModel.people.collectAsState()
+
+        val supervisorEmail = if (isAcademic) {
+            "supervisor.academic@iau.edu.sa"
+        } else {
+            "supervisor.field@iau.edu.sa"
+        }
+
+        LaunchedEffect(supervisorEmail) {
+            trainingViewModel.loadPeopleForSupervisor(supervisorEmail)
+        }
+
+        PeopleListLayout(
+            academic = isAcademic,
+            preview = false,
+            people = people,
+            onPersonClick = onPersonClick,
+            onLinkClick = onLinkClick
+        )
+    }
 }
 
 @Composable
-internal fun PeopleListLayout(academic: Boolean, preview: Boolean, onPersonClick: (String) -> Unit = {}, onLinkClick: () -> Unit = {}) {
+internal fun PeopleListLayout(
+    academic: Boolean,
+    preview: Boolean,
+    people: List<SupervisorPersonRow> = emptyList(),
+    onPersonClick: (String, Long) -> Unit = { _, _ -> },
+    onLinkClick: () -> Unit = {}
+)  {
     val names = listOf("Sara Alqahtani", "Jana Alharbi", "Noura Almutairi", "Reem Alqahtani", "Lama Alshehri", "Maha Aldosari")
     PeoplePage(academic, preview, header = {
         Row(Modifier.fillMaxWidth().height(53.dp).padding(horizontal = 20.dp),
@@ -61,20 +110,54 @@ internal fun PeopleListLayout(academic: Boolean, preview: Boolean, onPersonClick
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             PeopleInput(Icons.Outlined.Search, if (academic) "Search students" else "Search trainees")
             PeopleCard {
-                names.forEachIndexed { index, name ->
-                    val status = when {
-                        index == 0 && academic -> "Needs a check-in"
-                        index == 1 && !academic -> "2 tasks need review · 1 week ready to confirm"
-                        index == 1 || (!academic && index < 3) -> "1 task needs review"
-                        else -> "Up to date"
+                if (preview) {
+                    names.forEachIndexed { index, name ->
+                        val status = when {
+                            index == 0 && academic -> "Needs a check-in"
+                            index == 1 && !academic -> "2 tasks need review · 1 week ready to confirm"
+                            index == 1 || (!academic && index < 3) -> "1 task needs review"
+                            else -> "Up to date"
+                        }
+
+                        if (index > 0) HorizontalDivider(color = PeopleLine)
+
+                        PeopleListRow(
+                            name,
+                            status,
+                            initials = listOf("SA", "JA", "NM", "RA", "LS", "MD")[index],
+                            alert = academic && index == 0,
+                            onClick = { onPersonClick(name, 0L) }
+                        )
                     }
-                    if (index > 0) HorizontalDivider(color = PeopleLine)
-                    PeopleListRow(name, status, initials = listOf("SA","JA","NM","RA","LS","MD")[index],
-                        alert = academic && index == 0, onClick = { onPersonClick(name) })
-                }
-                if (!academic) {
-                    HorizontalDivider(color = PeopleLine)
-                    PeopleListRow("n.salem@uni.edu.sa", "Linking request sent", initials = null)
+                } else {
+                    if (people.isEmpty()) {
+                        PeopleText(
+                            "No linked people found",
+                            13,
+                            PeopleMuted,
+                            modifier = Modifier.padding(20.dp)
+                        )
+                    } else {
+                        people.forEachIndexed { index, person ->
+                            if (index > 0) HorizontalDivider(color = PeopleLine)
+
+                            val initials = person.fullName
+                                .split(" ")
+                                .mapNotNull { it.firstOrNull() }
+                                .take(2)
+                                .joinToString("")
+                                .uppercase()
+
+                            PeopleListRow(
+                                name = person.fullName,
+                                status = person.linkStatus,
+                                initials = initials,
+                                onClick = {
+                                    onPersonClick(person.fullName, person.recordId)
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -207,8 +290,14 @@ internal fun PeopleTitle(title: String, subtitle: String? = null, onBackClick: (
 
 @Composable
 internal fun PeopleCard(content: @Composable ColumnScope.() -> Unit) {
-    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(17.dp), color = Color.White,
-        border = BorderStroke(1.dp, PeopleLine)) { Column(content = content) }
+    Surface(
+        Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(17.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, PeopleLine)
+    ) {
+        Column(content = content)
+    }
 }
 
 @Composable

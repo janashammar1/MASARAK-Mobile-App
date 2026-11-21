@@ -1,4 +1,3 @@
-
 package sa.edu.iau.cshj.masarak.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
@@ -25,6 +24,11 @@ class TaskViewModel(
         MutableStateFlow<Map<Long, List<TaskSubmissionEntity>>>(emptyMap())
     val submissions: StateFlow<Map<Long, List<TaskSubmissionEntity>>> =
         _submissions.asStateFlow()
+
+    private val _selectedSubmission =
+        MutableStateFlow<TaskSubmissionEntity?>(null)
+    val selectedSubmission: StateFlow<TaskSubmissionEntity?> =
+        _selectedSubmission.asStateFlow()
 
     private val _reviews =
         MutableStateFlow<Map<Long, List<TaskReviewEntity>>>(emptyMap())
@@ -55,6 +59,14 @@ class TaskViewModel(
             taskRepository.getSubmissionsForTask(taskId).collect {
                 _submissions.value = _submissions.value + (taskId to it)
             }
+        }
+    }
+
+    fun loadSubmission(submissionId: Long) {
+        viewModelScope.launch {
+            _selectedSubmission.value = null
+            _selectedSubmission.value =
+                taskRepository.getSubmissionById(submissionId)
         }
     }
 

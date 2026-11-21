@@ -10,8 +10,12 @@ import sa.edu.iau.cshj.masarak.data.entity.TrainingRecordEntity
 import sa.edu.iau.cshj.masarak.data.entity.TrainingWeekEntity
 import sa.edu.iau.cshj.masarak.data.entity.WeeklyEvaluationEntity
 import sa.edu.iau.cshj.masarak.data.repository.TrainingRepository
+import sa.edu.iau.cshj.masarak.data.dao.SupervisorPersonRow
+
 
 class TrainingViewModel(private val trainingRepository: TrainingRepository) : ViewModel() {
+    private val _people = MutableStateFlow<List<SupervisorPersonRow>>(emptyList())
+    val people: StateFlow<List<SupervisorPersonRow>> = _people.asStateFlow()
     private val _trainingRecords = MutableStateFlow<List<TrainingRecordEntity>>(emptyList())
     val trainingRecords: StateFlow<List<TrainingRecordEntity>> = _trainingRecords.asStateFlow()
 
@@ -30,6 +34,14 @@ class TrainingViewModel(private val trainingRepository: TrainingRepository) : Vi
         viewModelScope.launch {
             trainingRepository.getTrainingWeeksForRecord(recordId).collect { weeks ->
                 _trainingWeeks.value = weeks
+            }
+        }
+    }
+
+    fun loadPeopleForSupervisor(supervisorEmail: String) {
+        viewModelScope.launch {
+            trainingRepository.getPeopleForSupervisor(supervisorEmail).collect { result ->
+                _people.value = result
             }
         }
     }
