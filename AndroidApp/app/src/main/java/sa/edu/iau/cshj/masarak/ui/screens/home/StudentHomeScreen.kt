@@ -11,7 +11,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.lifecycle.viewmodel.compose.viewModel
+import sa.edu.iau.cshj.masarak.data.entity.UserEntity
+import sa.edu.iau.cshj.masarak.ui.viewmodel.StudentHomeViewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,6 +63,7 @@ private fun MahaScreenLayout(
     role: MahaRole,
     previewStatusBar: Boolean,
     onTabSelected: (BottomBarItem) -> Unit = {},
+    chatUnreadCount: Int? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val background = if (role == MahaRole.Academic) {
@@ -86,7 +90,7 @@ private fun MahaScreenLayout(
             AppBottomBar(
                 selectedItem = BottomBarItem.Home,
                 thirdTabLabel = role.thirdTab,
-                chatUnreadCount = role.unreadChat,
+                chatUnreadCount = chatUnreadCount ?: if (role == MahaRole.Student) 0 else role.unreadChat,
                 onItemSelected = onTabSelected
             )
         }
@@ -113,7 +117,9 @@ internal fun MahaHomeHeader(
             Text(subtitle, color = MahaMuted, fontSize = 12.sp, lineHeight = 15.sp)
         }
         BadgedBox(badge = {
-            Badge(containerColor = MahaRed, contentColor = Color.White) { Text(count.toString()) }
+            if (count > 0) {
+                Badge(containerColor = MahaRed, contentColor = Color.White) { Text(count.toString()) }
+            }
         }) {
             Surface(onClick = onNotifications, shape = RoundedCornerShape(15.dp), color = Color.White,
                 border = androidx.compose.foundation.BorderStroke(1.dp, MahaLine)) {
@@ -126,7 +132,8 @@ internal fun MahaHomeHeader(
     }
     Spacer(Modifier.height(14.dp))
     Text(buildAnnotatedString {
-        append("Good morning, ")
+        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        append(when (hour) { in 0..11 -> "Good morning, "; in 12..17 -> "Good afternoon, "; else -> "Good evening, " })
         withStyle(SpanStyle(color = Color(0xFF5D5491), fontStyle = FontStyle.Italic,
             fontWeight = FontWeight.Bold)) { append(firstName) }
     }, color = MahaInk, fontSize = 25.sp, lineHeight = 30.sp, fontWeight = FontWeight.SemiBold)
@@ -217,51 +224,147 @@ internal fun MahaTileIcon(icon: ImageVector, color: Color = MahaLilac, ink: Colo
 }
 
 @Composable
-fun StudentHomeScreen(onWeeklyEvaluation: () -> Unit = {}, onTasksClick: () -> Unit = {}, onAddTask: () -> Unit = {}, onNotifications: () -> Unit = {}, onTabSelected: (BottomBarItem) -> Unit = {}) =
-    StudentHomeLayout(onWeeklyEvaluation = onWeeklyEvaluation, onTasksClick = onTasksClick, onAddTask = onAddTask, onNotifications = onNotifications, onTabSelected = onTabSelected)
+fun StudentHomeScreen(
+    onWeeklyEvaluation: () -> Unit = {},
+    onTasksClick: () -> Unit = {},
+    onAddTask: () -> Unit = {},
+    onNotifications: () -> Unit = {},
+    onTabSelected: (BottomBarItem) -> Unit = {},
+    currentUser: UserEntity? = null,
+    chatUnreadCount: Int? = null
+) {
+    val homeViewModel: StudentHomeViewModel = viewModel(factory = StudentHomeViewModel.Factory)
+    val state by homeViewModel.state.collectAsState()
+    LaunchedEffect(currentUser?.userId, currentUser?.role) { homeViewModel.load(currentUser) }
+    // Prevent another account's state from being shown during an account switch.
+    val visible = if (state.userId == currentUser?.userId) state else StudentHomeViewModel.State(isLoading = currentUser != null)
+    StudentHomeLayout(
+        onWeeklyEvaluation = onWeeklyEvaluation,
+        onTasksClick = onTasksClick,
+        onAddTask = onAddTask,
+        onNotifications = onNotifications,
+        onTabSelected = onTabSelected,
+        currentUser = currentUser,
+        state = visible,
+        chatUnreadCount = chatUnreadCount ?: visible.unreadChats,
+        onRetry = { homeViewModel.load(currentUser) }
+    )
+}
 
 @Composable
-private fun StudentHomeLayout(onWeeklyEvaluation: () -> Unit = {}, previewStatusBar: Boolean = false, onTasksClick: () -> Unit = {}, onAddTask: () -> Unit = {}, onNotifications: () -> Unit = {}, onTabSelected: (BottomBarItem) -> Unit = {}) {
-    MahaScreenLayout(MahaRole.Student, previewStatusBar = previewStatusBar, onTabSelected = onTabSelected) {
-        MahaHomeHeader("SA", "Sara Alqahtani", "Student · Week 3", "Sara", 2, MahaMint, onNotifications)
+private fun StudentHomeLayout(
+    onWeeklyEvaluation: () -> Unit = {},
+    previewStatusBar: Boolean = false,
+    onTasksClick: () -> Unit = {},
+    onAddTask: () -> Unit = {},
+    onNotifications: () -> Unit = {},
+    onTabSelected: (BottomBarItem) -> Unit = {},
+    currentUser: UserEntity? = null,
+    state: StudentHomeViewModel.State = StudentHomeViewModel.State(),
+    chatUnreadCount: Int? = null,
+    onRetry: () -> Unit = {}
+) {
+    val name = if (previewStatusBar) "Sara Alqahtani" else currentUser?.fullName.orEmpty()
+    val firstName = name.trim().split(Regex("\\s+")).firstOrNull().orEmpty()
+    val initials = name.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+        .take(2).mapNotNull { it.firstOrNull() }.joinToString("").uppercase()
+    val ready = previewStatusBar || (!state.isLoading && state.error == null && state.recordId != null)
+    val minutes = if (previewStatusBar) 3000L else state.confirmedMinutes
+    val target = if (previewStatusBar) 14400L else state.targetMinutes
+    val week = if (previewStatusBar) 3 else state.currentWeek
+    val subtitle = when {
+        previewStatusBar -> "Student · Week 3"
+        currentUser == null -> "Please sign in"
+        state.isLoading -> "Student · Loading..."
+        state.error != null -> "Student"
+        state.recordId == null -> "Student · No training record"
+        state.notStarted -> "Student · Training has not started"
+        state.ended -> "Student · Training ended"
+        else -> "Student · Week $week"
+    }
+    val progress = if (target > 0L) (minutes.toDouble() / target).coerceIn(0.0, 1.0).toFloat() else 0f
+    MahaScreenLayout(MahaRole.Student, previewStatusBar, onTabSelected, chatUnreadCount) {
+        // Keep shared header compatible with SupervisorHomeScreen.
+        MahaHomeHeader(initials.ifBlank { "?" }, name.ifBlank { "Student" }, subtitle,
+            firstName.ifBlank { "Student" }, if (previewStatusBar) 2 else state.unreadNotifications,
+            MahaMint, onNotifications)
+        if (!previewStatusBar && state.isLoading && currentUser != null) {
+            LinearProgressIndicator(Modifier.fillMaxWidth())
+            Spacer(Modifier.height(12.dp))
+        }
+        if (!previewStatusBar && state.error != null) {
+            Text(state.error, color = MahaRed)
+            TextButton(onClick = onRetry) { Text("Retry") }
+        }
         MahaSummary {
             MahaSummaryLabel(Icons.Outlined.AccessTime, "Confirmed training hours")
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.Bottom) {
-                Text("50", color = Color.White, fontSize = 52.sp, lineHeight = 55.sp, fontWeight = FontWeight.Bold)
-                Text(" / 240 h", Modifier.padding(bottom = 5.dp), color = Color(0xFFC2C5DA),
+                Text(if (ready) formatHomeHours(minutes) else "—", color = Color.White,
+                    fontSize = 52.sp, lineHeight = 55.sp, fontWeight = FontWeight.Bold)
+                Text(if (ready && target > 0) " / ${formatHomeHours(target)} h" else " h",
+                    Modifier.padding(bottom = 5.dp), color = Color(0xFFC2C5DA),
                     fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
             }
             Spacer(Modifier.height(8.dp))
             Box(Modifier.fillMaxWidth().height(7.dp).background(MahaLilac.copy(alpha = .24f), CircleShape)) {
-                Box(Modifier.fillMaxWidth(50f / 240f).fillMaxHeight().background(MahaAqua, CircleShape))
+                Box(Modifier.fillMaxWidth(progress).fillMaxHeight().background(MahaAqua, CircleShape))
             }
             Spacer(Modifier.height(12.dp))
-            Surface(onClick = onAddTask, shape = RoundedCornerShape(15.dp), color = MahaAqua) {
+            Surface(onClick = onAddTask, enabled = ready, shape = RoundedCornerShape(15.dp), color = MahaAqua) {
                 Text("+   Add task", Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
                     color = MahaNavy, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
         }
         Spacer(Modifier.height(12.dp))
+        if (!previewStatusBar && !state.isLoading && state.error == null && currentUser != null && state.recordId == null) {
+            Text("No training record is available for your account.", color = MahaMuted)
+            Spacer(Modifier.height(12.dp))
+        }
+        val returned = if (previewStatusBar) 1 else state.returnedTasks
+        val tasksSubtitle = when {
+            !ready -> "Training data is not available"
+            returned == 1 -> "1 task returned for updates"
+            returned > 1 -> "$returned tasks returned for updates"
+            else -> "No tasks returned for updates"
+        }
+        val attendanceSubtitle = when {
+            !ready -> "Training data is not available"
+            state.notStarted -> "Training has not started"
+            state.ended -> "View attendance and confirmed hours"
+            previewStatusBar || !state.hasCurrentWeek -> "Add this week’s attendance and hours"
+            state.currentWeekConfirmed -> "This week’s attendance is confirmed"
+            else -> "This week’s attendance is awaiting confirmation"
+        }
+        val evaluationSubtitle = when {
+            previewStatusBar -> "Week 2 · 9/10"
+            !ready -> "Training data is not available"
+            state.evaluationWeek == null -> "No weekly evaluation yet"
+            else -> "Week ${state.evaluationWeek} · ${state.grade}/10"
+        }
         MahaList {
-            Box(Modifier.fillMaxWidth().clickable { onTasksClick() }) {
-                MahaListRow("Tasks", "1 task returned for updates") { MahaTileIcon(Icons.Outlined.TaskAlt) }
+            Box(Modifier.fillMaxWidth().clickable(enabled = ready, onClick = onTasksClick)) {
+                MahaListRow("Tasks", tasksSubtitle) { MahaTileIcon(Icons.Outlined.TaskAlt) }
             }
             HorizontalDivider(color = MahaLine)
-            Box(Modifier.fillMaxWidth().clickable { onTabSelected(BottomBarItem.MyTraining) }) {
-                MahaListRow("My Training", "Add this week’s attendance and hours") {
+            Box(Modifier.fillMaxWidth().clickable(enabled = ready) { onTabSelected(BottomBarItem.MyTraining) }) {
+                MahaListRow("My Training", attendanceSubtitle) {
                     MahaTileIcon(Icons.Outlined.WorkOutline, MahaMint, Color(0xFF00696E))
                 }
             }
             HorizontalDivider(color = MahaLine)
-            Box(Modifier.fillMaxWidth().clickable(onClick = onWeeklyEvaluation)) {
-                MahaListRow("Weekly Evaluation", "Week 2 · 9/10") {
+            Box(Modifier.fillMaxWidth().clickable(enabled = ready && (previewStatusBar || state.evaluationWeek != null), onClick = onWeeklyEvaluation)) {
+                MahaListRow("Weekly Evaluation", evaluationSubtitle) {
                     MahaTileIcon(Icons.Outlined.FactCheck, MahaGold, Color(0xFF795A14))
                 }
             }
         }
     }
 }
+
+private fun formatHomeHours(minutes: Long): String =
+    if (minutes % 60L == 0L) (minutes / 60L).toString()
+    else String.format(java.util.Locale.getDefault(), "%.1f", minutes / 60.0)
 
 @Preview(name = "Student · Home", widthDp = 390, heightDp = 844)
 @Composable
