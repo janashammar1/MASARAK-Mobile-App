@@ -4,13 +4,23 @@ import kotlinx.coroutines.flow.Flow
 import sa.edu.iau.cshj.masarak.data.dao.NotificationDao
 import sa.edu.iau.cshj.masarak.data.entity.NotificationEntity
 
-class NotificationRepository(private val notificationDao: NotificationDao) {
-    fun getNotificationsForUser(recipientId: Long): Flow<List<NotificationEntity>> =
-        notificationDao.getNotificationsForUser(recipientId)
+interface NotificationDataSource {
+    fun getNotificationsForUser(recipientId: Long): Flow<List<NotificationEntity>>
+    suspend fun insertNotification(notification: NotificationEntity): Long
+    suspend fun markReadForUser(notificationId: Long, recipientId: Long, readAt: Long)
+    suspend fun markAllReadForUser(recipientId: Long, readAt: Long)
+    suspend fun getOwnedNotification(notificationId: Long, recipientId: Long): NotificationEntity?
+}
 
-    suspend fun insertNotification(notification: NotificationEntity): Long =
-        notificationDao.insertNotification(notification)
+class NotificationRepository(private val notificationDao: NotificationDao) : NotificationDataSource {
+    override fun getNotificationsForUser(recipientId: Long) = notificationDao.getNotificationsForUser(recipientId)
+    override suspend fun insertNotification(notification: NotificationEntity) = notificationDao.insertNotification(notification)
+    override suspend fun markReadForUser(notificationId: Long, recipientId: Long, readAt: Long) =
+        notificationDao.markReadForUser(notificationId, recipientId, readAt)
+    override suspend fun markAllReadForUser(recipientId: Long, readAt: Long) = notificationDao.markAllReadForUser(recipientId, readAt)
+    override suspend fun getOwnedNotification(notificationId: Long, recipientId: Long) =
+        notificationDao.getOwnedNotification(notificationId, recipientId)
 
-    suspend fun markAsRead(notificationId: Long, readAt: Long) =
-        notificationDao.markAsRead(notificationId, readAt)
+    // Keep the existing repository API for teammates; the feature uses the scoped methods above.
+    suspend fun markAsRead(notificationId: Long, readAt: Long) = notificationDao.markAsRead(notificationId, readAt)
 }

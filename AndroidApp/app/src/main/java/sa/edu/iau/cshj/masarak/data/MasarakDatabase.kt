@@ -36,6 +36,7 @@ import sa.edu.iau.cshj.masarak.data.entity.*
 abstract class MasarakDatabase : RoomDatabase() {
 
     abstract fun userDao(): UserDao
+    abstract fun homeDao(): HomeDao
     abstract fun trainingDao(): TrainingDao
     abstract fun taskDao(): TaskDao
     abstract fun chatDao(): ChatDao

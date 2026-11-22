@@ -13,7 +13,13 @@ import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.lifecycle.viewmodel.compose.viewModel
+import sa.edu.iau.cshj.masarak.data.entity.UserEntity
+import sa.edu.iau.cshj.masarak.ui.viewmodel.SupervisorHomeViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -34,31 +40,87 @@ import sa.edu.iau.cshj.masarak.ui.components.BottomBarItem
 fun SupervisorHomeScreen() = SupervisorHomeScreen(isAcademic = false)
 
 @Composable
-fun SupervisorHomeScreen(isAcademic: Boolean, onPeopleClick: () -> Unit = {}, onNotifications: () -> Unit = {}, onTabSelected: (BottomBarItem) -> Unit = {}) {
-    SupervisorHomeContent(isAcademic = isAcademic, inPreview = LocalInspectionMode.current, onPeopleClick = onPeopleClick, onNotifications = onNotifications, onTabSelected = onTabSelected)
-}
-
-@Composable
-private fun SupervisorHomeContent(isAcademic: Boolean, inPreview: Boolean, onPeopleClick: () -> Unit = {}, onNotifications: () -> Unit = {}, onTabSelected: (BottomBarItem) -> Unit = {}) {
-    if (inPreview) {
-        SupervisorPreviewFrame {
-            SupervisorHomeLayout(isAcademic = isAcademic, previewStatusBar = true)
-        }
+fun SupervisorHomeScreen(
+    isAcademic: Boolean,
+    onPeopleClick: () -> Unit = {},
+    onNotifications: () -> Unit = {},
+    onTabSelected: (BottomBarItem) -> Unit = {},
+    currentUser: UserEntity? = null,
+    onPersonClick: (String, Long) -> Unit = { _, _ -> },
+    chatUnreadCount: Int? = null
+) {
+    if (LocalInspectionMode.current) {
+        SupervisorHomeContent(isAcademic, inPreview = true)
     } else {
-        SupervisorHomeLayout(isAcademic = isAcademic, previewStatusBar = false, onPeopleClick = onPeopleClick, onNotifications = onNotifications, onTabSelected = onTabSelected)
+        val homeViewModel: SupervisorHomeViewModel = viewModel(factory = SupervisorHomeViewModel.Factory)
+        val state by homeViewModel.state.collectAsState()
+        LaunchedEffect(currentUser?.userId, currentUser?.role, isAcademic) { homeViewModel.load(currentUser, isAcademic) }
+        val role = if (isAcademic) "academic" else "field"
+        val visible = if (state.userId == currentUser?.userId && state.role == role) state
+        else SupervisorHomeViewModel.State(isLoading = currentUser != null)
+        SupervisorHomeLayout(
+            isAcademic, false, onPeopleClick, onNotifications, onTabSelected,
+            currentUser, visible, onPersonClick, chatUnreadCount ?: visible.unreadChats,
+            onRetry = { homeViewModel.load(currentUser, isAcademic) }
+        )
     }
 }
 
 @Composable
-private fun SupervisorHomeLayout(isAcademic: Boolean, previewStatusBar: Boolean, onPeopleClick: () -> Unit = {}, onNotifications: () -> Unit = {}, onTabSelected: (BottomBarItem) -> Unit = {}) {
+private fun SupervisorHomeContent(isAcademic: Boolean, inPreview: Boolean) {
+    if (inPreview) {
+        SupervisorPreviewFrame { SupervisorHomeLayout(isAcademic, previewStatusBar = true) }
+    }
+}
+
+@Composable
+private fun SupervisorHomeLayout(
+    isAcademic: Boolean,
+    previewStatusBar: Boolean,
+    onPeopleClick: () -> Unit = {},
+    onNotifications: () -> Unit = {},
+    onTabSelected: (BottomBarItem) -> Unit = {},
+    currentUser: UserEntity? = null,
+    state: SupervisorHomeViewModel.State = SupervisorHomeViewModel.State(),
+    onPersonClick: (String, Long) -> Unit = { _, _ -> },
+    chatUnreadCount: Int? = null,
+    onRetry: () -> Unit = {}
+) {
     val role = if (isAcademic) MahaRole.Academic else MahaRole.Field
-    SupervisorScreenFrame(role, previewStatusBar, onPeopleClick, onTabSelected) {
-        if (isAcademic) {
-            MahaHomeHeader("HZ", "Dr. Huda Alzahrani", "Academic Supervisor", "Huda", 3, MahaLilac, onNotifications)
-        } else {
-            MahaHomeHeader("KA", "Eng. Khalid Alotaibi", "Field Supervisor · Nakheel Tech", "Khalid", 4, MahaGold, onNotifications)
+    val name = if (previewStatusBar) {
+        if (isAcademic) "Dr. Huda Alzahrani" else "Eng. Khalid Alotaibi"
+    } else currentUser?.fullName.orEmpty()
+    val words = name.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+    val nameWords = words.filterNot { it.trimEnd('.').lowercase(Locale.ROOT) in setOf("dr", "eng", "prof") }
+    val firstName = nameWords.firstOrNull() ?: "Supervisor"
+    val initials = nameWords.take(2).mapNotNull { it.firstOrNull() }.joinToString("").uppercase()
+    val roleLabel = if (isAcademic) "Academic Supervisor" else "Field Supervisor"
+    val organization = if (previewStatusBar && !isAcademic) "Nakheel Tech" else currentUser?.workOrganization
+    val subtitle = roleLabel + if (!isAcademic && !organization.isNullOrBlank()) " · $organization" else ""
+    val ready = previewStatusBar || (currentUser != null && !state.isLoading && state.error == null)
+    val people = if (previewStatusBar) 6 else state.peopleCount
+    val tasks = if (previewStatusBar) { if (isAcademic) 2 else 4 } else state.pendingTasks
+    val weeks = if (previewStatusBar && !isAcademic) 1 else state.pendingWeeks
+    val needsReview = tasks + if (isAcademic) 0 else weeks
+    SupervisorScreenFrame(role, previewStatusBar, onPeopleClick, onTabSelected, chatUnreadCount) {
+        MahaHomeHeader(initials.ifBlank { "?" }, name.ifBlank { "Supervisor" }, subtitle, firstName,
+            if (previewStatusBar) { if (isAcademic) 3 else 4 } else state.unreadNotifications,
+            if (isAcademic) MahaLilac else MahaGold, onNotifications)
+        if (!previewStatusBar) {
+            if (currentUser == null) {
+                Text("Please sign in to view your supervisor home.", color = MahaMuted)
+                Spacer(Modifier.height(12.dp))
+            }
+            if (state.isLoading) {
+                LinearProgressIndicator(Modifier.fillMaxWidth())
+                Spacer(Modifier.height(12.dp))
+            }
+            state.error?.let { error ->
+                Text(error, color = MahaRed)
+                TextButton(onClick = onRetry) { Text("Retry") }
+            }
         }
-        Box(Modifier.fillMaxWidth().clickable(onClick = onPeopleClick)) {
+        Box(Modifier.fillMaxWidth().clickable(enabled = ready, onClick = onPeopleClick)) {
             MahaSummary {
                 MahaSummaryLabel(
                     if (isAcademic) Icons.Outlined.School else Icons.Outlined.Groups,
@@ -67,44 +129,88 @@ private fun SupervisorHomeLayout(isAcademic: Boolean, previewStatusBar: Boolean,
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.height(IntrinsicSize.Min)) {
                     Column(Modifier.weight(1f)) {
-                        SupervisorStat("6", if (isAcademic) "Students" else "Total trainees")
+                        SupervisorStat(if (ready) people.toString() else "—", if (isAcademic) "Students" else "Total trainees")
                     }
                     Box(Modifier.fillMaxHeight().width(1.dp).background(Color.White.copy(alpha = .2f)))
                     Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                        SupervisorStat(if (isAcademic) "2" else "5", "Needs Review")
+                        SupervisorStat(if (ready) needsReview.toString() else "—", "Needs Review")
                         Text(
-                            if (isAcademic) "2 tasks approved by Field Supervisor" else "4 tasks · 1 week to confirm",
+                            when {
+                                !ready -> "Data is not available yet"
+                                isAcademic -> "$tasks approved ${if (tasks == 1) "task awaits" else "tasks await"} your review"
+                                else -> "$tasks tasks · $weeks ${if (weeks == 1) "week" else "weeks"} to confirm"
+                            },
                             color = Color(0xFFC2C5DA), fontSize = 12.sp, lineHeight = 15.sp
                         )
                     }
                 }
             }
         }
-        if (isAcademic) {
-            Spacer(Modifier.height(12.dp))
-            AcademicHomeAlert()
+        if (isAcademic && ready) {
+            val followUp = if (previewStatusBar) SupervisorHomeViewModel.FollowUp("Sara Alqahtani", 0L, 2)
+            else state.followUps.firstOrNull()
+            if (followUp != null) {
+                Spacer(Modifier.height(12.dp))
+                AcademicHomeAlert(followUp.name, followUp.count) {
+                    onPersonClick(followUp.name, followUp.recordId)
+                }
+                if (!previewStatusBar && state.followUps.size > 1) {
+                    TextButton(onClick = onPeopleClick) { Text("View all students (${state.followUps.size} with relevance follow-up)") }
+                }
+            }
         }
         Spacer(Modifier.height(22.dp))
         Text("Recent activity", color = MahaInk, fontWeight = FontWeight.Bold, fontSize = 18.sp)
         Spacer(Modifier.height(10.dp))
         MahaList {
-            if (isAcademic) {
-                Activity("SA", "Sara Alqahtani", "Task approved by Field Supervisor", "09:30")
-                HorizontalDivider(color = MahaLine)
-                Activity("NM", "Noura Almutairi", "Week 3 confirmed by Field Supervisor", "09:15")
-                HorizontalDivider(color = MahaLine)
-                Activity("JA", "Jana Alharbi", "Task approved by Field Supervisor", "Yesterday")
+            if (previewStatusBar) {
+                if (isAcademic) {
+                    Activity("SA", "Sara Alqahtani", "Task approved by Field Supervisor", "09:30")
+                    HorizontalDivider(color = MahaLine)
+                    Activity("NM", "Noura Almutairi", "Week 3 confirmed by Field Supervisor", "09:15")
+                    HorizontalDivider(color = MahaLine)
+                    Activity("JA", "Jana Alharbi", "Task approved by Field Supervisor", "Yesterday")
+                } else {
+                    Activity("JA", "Jana Alharbi", "Submitted a task", "09:32")
+                    HorizontalDivider(color = MahaLine)
+                    Activity("SA", "Sara Alqahtani", "Submitted a task", "09:10")
+                    HorizontalDivider(color = MahaLine)
+                    Activity("JA", "Jana Alharbi", "Recorded Week 3 attendance", "08:15")
+                    HorizontalDivider(color = MahaLine)
+                    Activity("NM", "Noura Almutairi", "Resubmitted a task", "Yesterday")
+                }
+            } else if (ready) {
+                if (state.activities.isEmpty()) {
+                    Text(if (state.peopleCount == 0) "No linked ${if (isAcademic) "students" else "trainees"} yet."
+                    else "No recent activity.", Modifier.padding(16.dp), color = MahaMuted)
+                } else {
+                    state.activities.forEachIndexed { index, item ->
+                        if (index > 0) HorizontalDivider(color = MahaLine)
+                        Box(Modifier.fillMaxWidth().clickable { onPersonClick(item.name, item.recordId) }) {
+                            val letters = item.name.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+                                .take(2).mapNotNull { it.firstOrNull() }.joinToString("").uppercase()
+                            Activity(letters, item.name, item.details, supervisorActivityTime(item.at))
+                        }
+                    }
+                }
             } else {
-                Activity("JA", "Jana Alharbi", "Submitted a task", "09:32")
-                HorizontalDivider(color = MahaLine)
-                Activity("SA", "Sara Alqahtani", "Submitted a task", "09:10")
-                HorizontalDivider(color = MahaLine)
-                Activity("JA", "Jana Alharbi", "Recorded Week 3 attendance", "08:15")
-                HorizontalDivider(color = MahaLine)
-                Activity("NM", "Noura Almutairi", "Resubmitted a task", "Yesterday")
+                Text(if (state.isLoading) "Loading activity..." else "Activity is unavailable.",
+                    Modifier.padding(16.dp), color = MahaMuted)
             }
         }
     }
+}
+
+private fun supervisorActivityTime(at: Long): String {
+    val today = java.util.Calendar.getInstance()
+    val date = java.util.Calendar.getInstance().apply { timeInMillis = at }
+    fun sameDay(a: java.util.Calendar, b: java.util.Calendar): Boolean =
+        a.get(java.util.Calendar.YEAR) == b.get(java.util.Calendar.YEAR) &&
+                a.get(java.util.Calendar.DAY_OF_YEAR) == b.get(java.util.Calendar.DAY_OF_YEAR)
+    if (sameDay(today, date)) return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(at))
+    today.add(java.util.Calendar.DAY_OF_YEAR, -1)
+    if (sameDay(today, date)) return "Yesterday"
+    return SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(at))
 }
 
 @Composable
@@ -114,7 +220,7 @@ private fun SupervisorStat(number: String, title: String) {
 }
 
 @Composable
-private fun AcademicHomeAlert() {
+private fun AcademicHomeAlert(name: String, count: Int, onOpen: () -> Unit) {
     val ink = Color(0xFF511B1D)
     Row(
         Modifier.fillMaxWidth().background(Color(0xFFFFDAD7), RoundedCornerShape(17.dp)).padding(15.dp)
@@ -122,13 +228,13 @@ private fun AcademicHomeAlert() {
         Icon(Icons.Outlined.Warning, null, Modifier.size(18.dp), tint = ink)
         Spacer(Modifier.width(9.dp))
         Column(Modifier.weight(1f)) {
-            Text("Academic Alert · Sara Alqahtani", color = ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text("Relevance follow-up · $name", color = ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
-            Text("Several recent tasks didn’t match the major. A quick check-in may help.",
+            Text("$count ${if (count == 1) "task is" else "tasks are"} marked Not Relevant in the latest academic reviews.",
                 color = ink, fontSize = 13.sp, lineHeight = 18.sp)
             Spacer(Modifier.height(12.dp))
             Text("Open student", color = ink, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                textDecoration = TextDecoration.Underline)
+                textDecoration = TextDecoration.Underline, modifier = Modifier.clickable(onClick = onOpen))
         }
     }
 }
@@ -156,6 +262,7 @@ private fun SupervisorScreenFrame(
     previewStatusBar: Boolean,
     onPeopleClick: () -> Unit,
     onTabSelected: (BottomBarItem) -> Unit,
+    chatUnreadCount: Int?,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val background = Brush.verticalGradient(
@@ -178,7 +285,7 @@ private fun SupervisorScreenFrame(
             AppBottomBar(
                 selectedItem = BottomBarItem.Home,
                 thirdTabLabel = role.thirdTab,
-                chatUnreadCount = role.unreadChat,
+                chatUnreadCount = if (previewStatusBar) role.unreadChat else chatUnreadCount ?: 0,
                 onItemSelected = { if (it == BottomBarItem.MyTraining) onPeopleClick() else onTabSelected(it) }
             )
         }
