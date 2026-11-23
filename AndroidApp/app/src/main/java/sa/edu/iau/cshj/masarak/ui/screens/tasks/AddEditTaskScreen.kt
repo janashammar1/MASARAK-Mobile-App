@@ -66,6 +66,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.withContext
+import androidx.compose.material.icons.outlined.Close
 private val TaskNavy = Color(0xFF0C0D45)
 private val TaskPaper = Color(0xFFF7F6F5)
 private val TaskLine = Color(0xFFD9DADF)
@@ -123,6 +124,15 @@ internal fun StudentTaskForm(filled: Boolean = true, scrolled: Boolean = false, 
     var isLoadingTask by remember(submissionId) {
         mutableStateOf(submissionId != null)
     }
+    var savedAttachments by remember(submissionId) {
+
+        mutableStateOf<List<TaskAttachmentEntity>>(emptyList())
+    }
+
+    var removedAttachmentIds by remember(submissionId) {
+        mutableStateOf<Set<Long>>(emptySet())
+    }
+
     var isSubmitting by remember { mutableStateOf(false) }
 
     LaunchedEffect(submissionId) {
@@ -132,6 +142,10 @@ internal fun StudentTaskForm(filled: Boolean = true, scrolled: Boolean = false, 
             try {
                 val submission = withContext(Dispatchers.IO) {
                     taskRepository.getSubmissionById(submissionId)
+                }
+
+                savedAttachments = withContext(Dispatchers.IO) {
+                    taskRepository.getAttachmentsForSubmission(submissionId).first()
                 }
 
                 if (submission != null) {
@@ -150,29 +164,9 @@ internal fun StudentTaskForm(filled: Boolean = true, scrolled: Boolean = false, 
         }
     }
 
-    var demoRecordId by remember {
-        mutableStateOf<Long?>(null)
-    }
 
-    LaunchedEffect(recordId) {
-        if (recordId == null) {
-            demoRecordId = withContext(Dispatchers.IO) {
-                val db = DatabaseProvider.db
-                val student = db.userDao()
-                    .getUserByEmail("student@iau.edu.sa")
+    val activeRecordId = recordId
 
-                student?.let {
-                    db.trainingDao()
-                        .getTrainingRecordsForStudent(it.userId)
-                        .first()
-                        .firstOrNull()
-                        ?.recordId
-                }
-            }
-        }
-    }
-
-    val activeRecordId = recordId ?: demoRecordId
 
     val isFormValid =
         taskTitle.isNotBlank() &&
@@ -190,24 +184,9 @@ internal fun StudentTaskForm(filled: Boolean = true, scrolled: Boolean = false, 
         isSubmitting = true
         scope.launch {
             try {
-            if (submissionId != null) {
-                val existingSubmission = withContext(Dispatchers.IO) {
-                    taskRepository.getSubmissionById(submissionId)
-                }
 
-                if (existingSubmission != null) {
-                    taskRepository.insertSubmission(
-                        existingSubmission.copy(
-                            title = taskTitle.trim(),
-                            taskDate = validDate,
-                            durationMinutes = (hours * 60).toInt(),
-                            taskType = taskType,
-                            description = description.trim(),
-                            challenges = challenges.trim().ifBlank { null }
-                        )
-                    )
-
-                    selectedAttachmentUri?.let { uri ->
+                if (submissionId != null) {
+                    val newAttachment = selectedAttachmentUri?.let { uri ->
                         withContext(Dispatchers.IO) {
                             val resolver = context.contentResolver
 
@@ -228,79 +207,105 @@ internal fun StudentTaskForm(filled: Boolean = true, scrolled: Boolean = false, 
                                 ?.takeIf { it >= 0L }
                                 ?: 0L
 
-                            taskRepository.insertAttachment(
-                                TaskAttachmentEntity(
-                                    submissionId = existingSubmission.submissionId,
-                                    fileName = fileName,
-                                    mimeType = mimeType,
-                                    sizeBytes = sizeBytes,
-                                    fileRef = uri.toString()
-                                )
+                            TaskAttachmentEntity(
+                                submissionId = 0L,
+                                fileName = fileName,
+                                mimeType = mimeType,
+                                sizeBytes = sizeBytes,
+                                fileRef = uri.toString()
                             )
                         }
                     }
 
+                    taskRepository.resubmitTask(
+                        existingSubmissionId = submissionId,
+                        updatedSubmission = TaskSubmissionEntity(
+                            taskId = 0L,
+                            attemptNo = 1,
+                            title = taskTitle.trim(),
+                            taskDate = validDate,
+                            durationMinutes = (hours * 60).toInt(),
+                            taskType = taskType,
+                            description = description.trim(),
+                            challenges = challenges.trim().ifBlank { null },
+                            submittedAt = System.currentTimeMillis()
+                        ),
+                        removedAttachmentIds = removedAttachmentIds,
+                        newAttachment = newAttachment
+                    )
+
                     onBackClick()
+                    return@launch
                 }
 
-                return@launch
-            }
 
-            val taskId = taskRepository.insertTask(
-                TaskEntity(recordId = validRecordId ?: return@launch)            )
 
-            val submissionId = taskRepository.insertSubmission(                TaskSubmissionEntity(
-                    taskId = taskId,
-                    attemptNo = 1,
-                    title = taskTitle.trim(),
-                    taskDate = validDate,
-                    durationMinutes = (hours * 60).toInt(),
-                    taskType = taskType,
-                    description = description.trim(),
-                    challenges = challenges.trim().ifBlank { null },
-                    submittedAt = System.currentTimeMillis()
-                )
-            )
+                val newRecordId = validRecordId ?: return@launch
 
-            selectedAttachmentUri?.let { uri ->
-                withContext(Dispatchers.IO) {
-                    val resolver = context.contentResolver
+                val attachment = selectedAttachmentUri?.let { uri ->
+                    withContext(Dispatchers.IO) {
+                        val resolver = context.contentResolver
 
-                    val fileName = resolver.query(
-                        uri,
-                        arrayOf(OpenableColumns.DISPLAY_NAME),
-                        null,
-                        null,
-                        null
-                    )?.use { cursor ->
-                        if (cursor.moveToFirst()) cursor.getString(0)
-                        else null
-                    } ?: "Attachment"
+                        val fileName = resolver.query(
+                            uri,
+                            arrayOf(OpenableColumns.DISPLAY_NAME),
+                            null,
+                            null,
+                            null
+                        )?.use { cursor ->
+                            if (cursor.moveToFirst()) cursor.getString(0)
+                            else null
+                        } ?: "Attachment"
 
-                    val mimeType = resolver.getType(uri)
-                        ?: "application/octet-stream"
+                        val mimeType = resolver.getType(uri)
+                            ?: "application/octet-stream"
 
-                    val sizeBytes = resolver.openAssetFileDescriptor(uri, "r")
-                        ?.use { it.length }
-                        ?.takeIf { it >= 0L }
-                        ?: 0L
+                        val sizeBytes = resolver.openAssetFileDescriptor(uri, "r")
+                            ?.use { it.length }
+                            ?.takeIf { it >= 0L }
+                            ?: 0L
 
-                    taskRepository.insertAttachment(
                         TaskAttachmentEntity(
-                            submissionId = submissionId,
+                            submissionId = 0L,
                             fileName = fileName,
                             mimeType = mimeType,
                             sizeBytes = sizeBytes,
                             fileRef = uri.toString()
                         )
-                    )
+                    }
                 }
-            }
 
-            onBackClick()
+                taskRepository.saveNewTask(
+                    recordId = newRecordId,
+                    submission = TaskSubmissionEntity(
+                        taskId = 0L,
+                        attemptNo = 1,
+                        title = taskTitle.trim(),
+                        taskDate = validDate,
+                        durationMinutes = (hours * 60).toInt(),
+                        taskType = taskType,
+                        description = description.trim(),
+                        challenges = challenges.trim().ifBlank { null },
+                        submittedAt = System.currentTimeMillis()
+                    ),
+                    attachment = attachment
+                )
+
+
+                onBackClick()
+
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+
                 android.util.Log.e("MASARAK_TASK", "Failed to save task", e)
+
+                android.widget.Toast.makeText(
+                    context,
+                    "Failed to save task. Please try again.",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
             } finally {
+
                 isSubmitting = false
             }
         }
@@ -524,6 +529,49 @@ internal fun StudentTaskForm(filled: Boolean = true, scrolled: Boolean = false, 
                             Text("Add attachment", color = TaskNavy, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
+
+                    savedAttachments
+                        .filterNot { it.attachmentId in removedAttachmentIds }
+                        .forEach { attachment ->                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFFF3F5F8)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.AttachFile,
+                                    contentDescription = null,
+                                    tint = TaskNavy
+                                )
+
+                                Spacer(Modifier.width(8.dp))
+
+                                Text(
+                                    text = attachment.fileName,
+                                    modifier = Modifier.weight(1f),
+                                    fontSize = 12.sp
+                                )
+
+                                IconButton(
+                                    onClick = {
+                                        removedAttachmentIds =
+                                            removedAttachmentIds + attachment.attachmentId
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Close,
+                                        contentDescription = "Remove attachment",
+                                        tint = Color.Red
+                                    )
+                                }
+
+                            }
+                        }
+                    }
+
                     if (selectedAttachmentUri != null) Surface(modifier = Modifier.weight(1f), shape = RoundedCornerShape(13.dp), color = Color.Transparent, border = BorderStroke(1.dp, Color(0xFFE1DFDB))) {
                         Row(Modifier.padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Outlined.Image, null, Modifier.size(14.dp), tint = Color(0xFF00696E))
