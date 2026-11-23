@@ -57,7 +57,9 @@ data class TaskDetails(
     val supervisorComment: String = "",
     val supervisorTime: String = "",
     val challenges: String = "",
-    val evidence: List<String> = emptyList()
+
+    val evidence: List<String> = emptyList(),
+    val submissionId: Long? = null
 )
 
 internal val sampleTask = TaskDetails(

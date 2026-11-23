@@ -42,21 +42,342 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.net.Uri
+import android.provider.OpenableColumns
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import sa.edu.iau.cshj.masarak.data.DatabaseProvider
+import sa.edu.iau.cshj.masarak.data.repository.TaskRepository
+import androidx.compose.runtime.remember
+import sa.edu.iau.cshj.masarak.data.entity.TaskEntity
+import sa.edu.iau.cshj.masarak.data.entity.TaskSubmissionEntity
+import sa.edu.iau.cshj.masarak.data.entity.TaskAttachmentEntity
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.withContext
+import androidx.compose.material.icons.outlined.Close
 private val TaskNavy = Color(0xFF0C0D45)
 private val TaskPaper = Color(0xFFF7F6F5)
 private val TaskLine = Color(0xFFD9DADF)
 
 @Composable
-fun AddEditTaskScreen(onBackClick: () -> Unit = {}) =
-    StudentTaskForm(onBackClick = onBackClick)
+
+
+fun AddEditTaskScreen(
+    onBackClick: () -> Unit = {},
+    recordId: Long? = null,
+    submissionId: Long? = null
+) = StudentTaskForm(
+    onBackClick = onBackClick,
+    recordId = recordId,
+    submissionId = submissionId
+)
+
+
 
 @Composable
-internal fun StudentTaskForm(filled: Boolean = true, scrolled: Boolean = false, dateFocused: Boolean = false, showEvidenceRow: Boolean = true, onBackClick: () -> Unit = {}) {
+internal fun StudentTaskForm(filled: Boolean = true, scrolled: Boolean = false, dateFocused: Boolean = false, showEvidenceRow: Boolean = true, onBackClick: () -> Unit = {},recordId: Long? = null,
+                             submissionId: Long? = null) {
     var overlay by rememberSaveable { mutableStateOf("") }
+    var taskTitle by rememberSaveable {
+        mutableStateOf("")
+    }
+    var timeSpent by rememberSaveable {
+        mutableStateOf("")
+    }
+
+    var description by rememberSaveable {
+        mutableStateOf("")
+    }
+    var challenges by rememberSaveable {
+        mutableStateOf("")
+    }
+
+    var taskType by rememberSaveable {
+        mutableStateOf("Individual")
+    }
+    var selectedDate by rememberSaveable {
+        mutableStateOf<Long?>(null)
+    }
+
+    var selectedAttachmentUri by rememberSaveable {
+        mutableStateOf<Uri?>(null)
+    }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    val taskRepository = remember(context) {
+        DatabaseProvider.initialize(context.applicationContext)
+        TaskRepository(DatabaseProvider.db.taskDao())
+    }
+    var isLoadingTask by remember(submissionId) {
+        mutableStateOf(submissionId != null)
+    }
+    var savedAttachments by remember(submissionId) {
+
+        mutableStateOf<List<TaskAttachmentEntity>>(emptyList())
+    }
+
+    var removedAttachmentIds by remember(submissionId) {
+        mutableStateOf<Set<Long>>(emptySet())
+    }
+
+    var isSubmitting by remember { mutableStateOf(false) }
+
+    LaunchedEffect(submissionId) {
+        if (submissionId != null) {
+            isLoadingTask = true
+
+            try {
+                val submission = withContext(Dispatchers.IO) {
+                    taskRepository.getSubmissionById(submissionId)
+                }
+
+                savedAttachments = withContext(Dispatchers.IO) {
+                    taskRepository.getAttachmentsForSubmission(submissionId).first()
+                }
+
+                if (submission != null) {
+                    taskTitle = submission.title
+                    selectedDate = submission.taskDate
+                    timeSpent = (submission.durationMinutes / 60.0)
+                        .toString()
+                        .removeSuffix(".0")
+                    taskType = submission.taskType
+                    description = submission.description
+                    challenges = submission.challenges.orEmpty()
+                }
+            } finally {
+                isLoadingTask = false
+            }
+        }
+    }
+
+
+    val activeRecordId = recordId
+
+
+    val isFormValid =
+        taskTitle.isNotBlank() &&
+                selectedDate != null &&
+                (timeSpent.toDoubleOrNull()?.let { it > 0 } == true) &&
+                description.isNotBlank() &&
+                (submissionId != null || (activeRecordId != null && activeRecordId > 0))
+    fun submitTask() {
+        val validRecordId = activeRecordId
+        val validDate = selectedDate ?: return
+        val hours = timeSpent.toDoubleOrNull() ?: return
+
+        if (!isFormValid) return
+        if (isSubmitting) return
+        isSubmitting = true
+        scope.launch {
+            try {
+
+                if (submissionId != null) {
+                    val newAttachment = selectedAttachmentUri?.let { uri ->
+                        withContext(Dispatchers.IO) {
+                            val resolver = context.contentResolver
+
+                            val fileName = resolver.query(
+                                uri,
+                                arrayOf(OpenableColumns.DISPLAY_NAME),
+                                null, null, null
+                            )?.use { cursor ->
+                                if (cursor.moveToFirst()) cursor.getString(0)
+                                else null
+                            } ?: "Attachment"
+
+                            val mimeType = resolver.getType(uri)
+                                ?: "application/octet-stream"
+
+                            val sizeBytes = resolver.openAssetFileDescriptor(uri, "r")
+                                ?.use { it.length }
+                                ?.takeIf { it >= 0L }
+                                ?: 0L
+
+                            TaskAttachmentEntity(
+                                submissionId = 0L,
+                                fileName = fileName,
+                                mimeType = mimeType,
+                                sizeBytes = sizeBytes,
+                                fileRef = uri.toString()
+                            )
+                        }
+                    }
+
+                    taskRepository.resubmitTask(
+                        existingSubmissionId = submissionId,
+                        updatedSubmission = TaskSubmissionEntity(
+                            taskId = 0L,
+                            attemptNo = 1,
+                            title = taskTitle.trim(),
+                            taskDate = validDate,
+                            durationMinutes = (hours * 60).toInt(),
+                            taskType = taskType,
+                            description = description.trim(),
+                            challenges = challenges.trim().ifBlank { null },
+                            submittedAt = System.currentTimeMillis()
+                        ),
+                        removedAttachmentIds = removedAttachmentIds,
+                        newAttachment = newAttachment
+                    )
+
+                    onBackClick()
+                    return@launch
+                }
+
+
+
+                val newRecordId = validRecordId ?: return@launch
+
+                val attachment = selectedAttachmentUri?.let { uri ->
+                    withContext(Dispatchers.IO) {
+                        val resolver = context.contentResolver
+
+                        val fileName = resolver.query(
+                            uri,
+                            arrayOf(OpenableColumns.DISPLAY_NAME),
+                            null,
+                            null,
+                            null
+                        )?.use { cursor ->
+                            if (cursor.moveToFirst()) cursor.getString(0)
+                            else null
+                        } ?: "Attachment"
+
+                        val mimeType = resolver.getType(uri)
+                            ?: "application/octet-stream"
+
+                        val sizeBytes = resolver.openAssetFileDescriptor(uri, "r")
+                            ?.use { it.length }
+                            ?.takeIf { it >= 0L }
+                            ?: 0L
+
+                        TaskAttachmentEntity(
+                            submissionId = 0L,
+                            fileName = fileName,
+                            mimeType = mimeType,
+                            sizeBytes = sizeBytes,
+                            fileRef = uri.toString()
+                        )
+                    }
+                }
+
+                taskRepository.saveNewTask(
+                    recordId = newRecordId,
+                    submission = TaskSubmissionEntity(
+                        taskId = 0L,
+                        attemptNo = 1,
+                        title = taskTitle.trim(),
+                        taskDate = validDate,
+                        durationMinutes = (hours * 60).toInt(),
+                        taskType = taskType,
+                        description = description.trim(),
+                        challenges = challenges.trim().ifBlank { null },
+                        submittedAt = System.currentTimeMillis()
+                    ),
+                    attachment = attachment
+                )
+
+
+                onBackClick()
+
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+
+                android.util.Log.e("MASARAK_TASK", "Failed to save task", e)
+
+                android.widget.Toast.makeText(
+                    context,
+                    "Failed to save task. Please try again.",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            } finally {
+
+                isSubmitting = false
+            }
+        }
+    }
+    val attachmentName = selectedAttachmentUri?.let { uri ->
+        context.contentResolver.query(
+            uri,
+            arrayOf(OpenableColumns.DISPLAY_NAME),
+            null,
+            null,
+            null
+        )?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                cursor.getString(0)
+            } else {
+                null
+            }
+        }
+    }
+    val imagePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+            selectedAttachmentUri = uri
+            overlay = ""
+        }
+    }
+
+    val filePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+            selectedAttachmentUri = uri
+            overlay = ""
+        }
+    }
+
     when (overlay) {
-        "date" -> DatePickerDialog(onDismiss = { overlay = "" })
-        "attachment" -> AddAttachmentSheet(onDismiss = { overlay = "" })
+
+        "date" -> DatePickerDialog(
+            onDismiss = { overlay = "" },
+            onDateSelected = { date ->
+                selectedDate = date
+                overlay = ""
+            }
+        )
+
+        "attachment" -> AddAttachmentSheet(
+            onDismiss = { overlay = "" },
+            onImageClick = {
+                overlay = ""
+                imagePicker.launch(arrayOf("image/*"))
+            },
+            onFileClick = {
+                overlay = ""
+                filePicker.launch(
+                    arrayOf(
+                        "application/pdf",
+                        "application/msword",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    )
+                )
+            }
+        )
     }
     Column(
         Modifier.fillMaxSize().background(
@@ -78,27 +399,126 @@ internal fun StudentTaskForm(filled: Boolean = true, scrolled: Boolean = false, 
         ) {
             if (!scrolled) {
                 Text("Add a task after you complete it.", fontSize = 13.sp, lineHeight = 17.sp, color = Color(0xFF55555F))
-                TaskField("Task title",
-                    if (filled) "Build the sign-up form" else "e.g. Build the sign-up form", filled)
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    TaskLabel("Task title")
+
+                    OutlinedTextField(
+                        value = taskTitle,
+                        onValueChange = { taskTitle = it },
+                        placeholder = {
+                            Text("e.g. Build the sign-up form")
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(15.dp)
+                    )
+                }
+
             }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(Modifier.weight(1f)) {
-                    TaskField("Date completed", "Mon, 14 Sep", true, icon = Icons.Outlined.CalendarToday, focused = dateFocused || overlay == "date", onClick = { overlay = "date" })
+                    TaskField("Date completed",
+                        selectedDate?.let { date ->
+                            Instant.ofEpochMilli(date)
+                                .atZone(ZoneId.systemDefault())
+                                .format(
+                                    DateTimeFormatter.ofPattern(
+                                        "EEE, d MMM",
+                                        Locale.ENGLISH
+                                    )
+                                )
+                        } ?: "Select date"
+                        , filled = selectedDate != null, icon = Icons.Outlined.CalendarToday, focused = dateFocused || overlay == "date", onClick = { overlay = "date" })
                 }
                 Box(Modifier.weight(1f)) {
-                    TaskField("Time spent", if (filled) "5" else "0", filled, suffix = "h")
+
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        TaskLabel("Time spent")
+
+                        OutlinedTextField(
+                            value = timeSpent,
+                            onValueChange = { newValue ->
+                                if (newValue.isEmpty() ||
+                                    newValue.matches(Regex("\\d*\\.?\\d*"))) {
+                                    timeSpent = newValue
+                                }
+                            },
+                            placeholder = { Text("0") },
+                            suffix = { Text("h") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(15.dp),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal
+                            )
+                        )
+                    }
                 }
             }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Done as", color = TaskNavy, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(25.dp)) {
-                    TaskType("Individual", true)
-                    TaskType("Team", false)
+
+
+                    TaskType(
+                        label = "Individual",
+                        selected = taskType == "Individual",
+                        onClick = { taskType = "Individual" }
+                    )
+
+                    TaskType(
+                        label = "Team",
+                        selected = taskType == "Team",
+                        onClick = { taskType = "Team" }
+                    )
+
+
                 }
             }
-            TaskField("Description", if (filled) "Built the form with field validation and clear error messages."
-            else "What did you do, and how?", filled, 98)
-            TaskField("Challenges", "Anything that made it harder?", false, 78, optional = true)
+
+            Column(
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                TaskLabel("Description")
+
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    placeholder = {
+                        Text("What did you do, and how?")
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 98.dp),
+                    minLines = 3,
+                    shape = RoundedCornerShape(15.dp)
+                )
+            }
+
+
+            Column(
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                TaskLabel("Challenges", optional = true)
+
+                OutlinedTextField(
+                    value = challenges,
+                    onValueChange = { challenges = it },
+                    placeholder = {
+                        Text("Anything that made it harder?")
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 78.dp),
+                    minLines = 2,
+                    shape = RoundedCornerShape(15.dp)
+                )
+            }
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 TaskLabel("Evidence", optional = true)
                 if (showEvidenceRow) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -109,13 +529,72 @@ internal fun StudentTaskForm(filled: Boolean = true, scrolled: Boolean = false, 
                             Text("Add attachment", color = TaskNavy, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
-                    if (filled) Surface(modifier = Modifier.weight(1f), shape = RoundedCornerShape(13.dp), color = Color.Transparent, border = BorderStroke(1.dp, Color(0xFFE1DFDB))) {
+
+                    savedAttachments
+                        .filterNot { it.attachmentId in removedAttachmentIds }
+                        .forEach { attachment ->                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFFF3F5F8)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.AttachFile,
+                                    contentDescription = null,
+                                    tint = TaskNavy
+                                )
+
+                                Spacer(Modifier.width(8.dp))
+
+                                Text(
+                                    text = attachment.fileName,
+                                    modifier = Modifier.weight(1f),
+                                    fontSize = 12.sp
+                                )
+
+                                IconButton(
+                                    onClick = {
+                                        removedAttachmentIds =
+                                            removedAttachmentIds + attachment.attachmentId
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Close,
+                                        contentDescription = "Remove attachment",
+                                        tint = Color.Red
+                                    )
+                                }
+
+                            }
+                        }
+                    }
+
+                    if (selectedAttachmentUri != null) Surface(modifier = Modifier.weight(1f), shape = RoundedCornerShape(13.dp), color = Color.Transparent, border = BorderStroke(1.dp, Color(0xFFE1DFDB))) {
                         Row(Modifier.padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Outlined.Image, null, Modifier.size(14.dp), tint = Color(0xFF00696E))
                             Spacer(Modifier.width(5.dp))
-                            Text("signup-form.png", Modifier.weight(1f), color = TaskNavy, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+
+                            Text(
+                                text = attachmentName ?: "Attachment",
+                                modifier = Modifier.weight(1f),
+                                color = TaskNavy,
+                                fontSize = 11.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                             Spacer(Modifier.width(7.dp))
-                            Text("×", color = TaskNavy, fontSize = 13.sp)
+
+                            Text(
+                                text = "×",
+                                modifier = Modifier.clickable {
+                                    selectedAttachmentUri = null
+                                },
+                                color = TaskNavy,
+                                fontSize = 13.sp
+                            )
                         }
                     }
                 }
@@ -127,7 +606,10 @@ internal fun StudentTaskForm(filled: Boolean = true, scrolled: Boolean = false, 
                 Text(if (filled) "Ready to send. Eng. Khalid will review it next." else "Add a title to continue",
                     color = Color(0xFF55555F), fontSize = 11.sp)
                 Spacer(Modifier.height(6.dp))
-                Button(onClick = {}, enabled = filled, modifier = Modifier.fillMaxWidth().height(46.dp),
+                Button(
+                    onClick = { submitTask() },
+                    enabled = filled && isFormValid && !isLoadingTask && !isSubmitting,
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = TaskNavy)) {
                     Icon(Icons.Outlined.Send, null, Modifier.size(15.dp))
@@ -181,16 +663,45 @@ private fun TaskLabel(label: String, optional: Boolean = false, color: Color = T
 }
 
 @Composable
-private fun TaskType(label: String, selected: Boolean) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(18.dp).border(2.dp, if (selected) TaskNavy else Color(0xFF64646C), CircleShape),
-            contentAlignment = Alignment.Center) {
-            if (selected) Box(Modifier.size(9.dp).background(TaskNavy, CircleShape))
+
+private fun TaskType(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier.clickable(onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier
+                .size(18.dp)
+                .border(
+                    2.dp,
+                    if (selected) TaskNavy else Color(0xFF64646C),
+                    CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            if (selected) {
+                Box(
+                    Modifier
+                        .size(9.dp)
+                        .background(TaskNavy, CircleShape)
+                )
+            }
         }
+
         Spacer(Modifier.width(10.dp))
-        Text(label, color = TaskNavy, fontSize = 14.sp)
+
+        Text(
+            text = label,
+            color = TaskNavy,
+            fontSize = 14.sp
+        )
     }
 }
+
 
 @Preview(name = "Add task", widthDp = 390, heightDp = 844)
 @Composable

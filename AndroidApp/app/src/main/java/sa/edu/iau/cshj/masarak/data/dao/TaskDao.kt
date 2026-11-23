@@ -36,6 +36,10 @@ interface TaskDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAttachment(attachment: TaskAttachmentEntity): Long
 
+    @Query("DELETE FROM task_attachments WHERE attachmentId = :attachmentId")
+    suspend fun deleteAttachmentById(attachmentId: Long)
+
+
     @Query("SELECT * FROM task_reviews WHERE submissionId = :submissionId")
     fun getReviewsForSubmission(submissionId: Long): Flow<List<TaskReviewEntity>>
 

@@ -52,7 +52,8 @@ import sa.edu.iau.cshj.masarak.ui.screens.tasks.ReviewTaskScreen
 import sa.edu.iau.cshj.masarak.ui.screens.training.AcademicWeeklyEvaluationScreen
 import sa.edu.iau.cshj.masarak.ui.screens.training.MyTrainingScreen
 import sa.edu.iau.cshj.masarak.ui.screens.training.WeeklyEvaluationScreen
-
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 @Composable
 fun AppNavGraph() {
 
@@ -517,18 +518,37 @@ fun AppNavGraph() {
                     nav.popBackStack()
                 },
 
+
                 onEditClick = {
-                    nav.navigate("task_form")
+                    val submissionId = selectedTask.value.submissionId
+                    if (submissionId != null) {
+                        nav.navigate("task_form?submissionId=$submissionId")
+                    }
                 }
+
             )
         }
 
-        composable("task_form") {
+
+        composable(
+            route = "task_form?submissionId={submissionId}",
+            arguments = listOf(
+                navArgument("submissionId") {
+                    type = NavType.LongType
+                    defaultValue = -1L
+                }
+            )
+        ) { backStackEntry ->
+
             AddEditTaskScreen(
                 onBackClick = {
                     nav.popBackStack()
-                }
+                },
+                submissionId = backStackEntry.arguments
+                    ?.getLong("submissionId")
+                    ?.takeIf { it > 0L }
             )
+
         }
     }
 }
