@@ -230,11 +230,10 @@ fun AppNavGraph() {
                     }
                 } else null,
 
-                onEvaluation = if (
-                    academic && personName == "Noura Almutairi"
-                ) {
+                // Academic supervisor opens the weekly evaluation of this student's record
+                onEvaluation = if (academic && recordId != 0L) {
                     {
-                        nav.navigate("academic_weekly_evaluation")
+                        nav.navigate("academic_weekly_evaluation/$recordId")
                     }
                 } else null
             )
@@ -480,8 +479,11 @@ fun AppNavGraph() {
             )
         }
 
-        composable("academic_weekly_evaluation") {
+        composable("academic_weekly_evaluation/{recordId}") { entry ->
             AcademicWeeklyEvaluationScreen(
+                recordId = entry.arguments
+                    ?.getString("recordId")
+                    ?.toLongOrNull() ?: 0L,
                 onBack = {
                     nav.popBackStack()
                 },

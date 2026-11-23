@@ -7,6 +7,9 @@ import sa.edu.iau.cshj.masarak.data.entity.TrainingRecordEntity
 import sa.edu.iau.cshj.masarak.data.entity.TrainingWeekEntity
 import sa.edu.iau.cshj.masarak.data.entity.WeeklyEvaluationEntity
 import sa.edu.iau.cshj.masarak.data.dao.SupervisorPersonRow
+import sa.edu.iau.cshj.masarak.data.dao.RecordSupervisorRow
+import sa.edu.iau.cshj.masarak.data.entity.TaskSubmissionEntity
+import sa.edu.iau.cshj.masarak.data.entity.UserEntity
 
 class TrainingRepository(private val trainingDao: TrainingDao) {
     fun getPeopleForSupervisor(supervisorEmail: String): Flow<List<SupervisorPersonRow>> =
@@ -34,4 +37,24 @@ class TrainingRepository(private val trainingDao: TrainingDao) {
 
     suspend fun insertSupervisorLink(link: SupervisorLinkEntity): Long =
         trainingDao.insertSupervisorLink(link)
+
+    // ---------- My Training & Weekly Evaluation screens ----------
+
+    suspend fun getUserByEmail(email: String): UserEntity? =
+        trainingDao.getUserByEmail(email)
+
+    fun observeUser(userId: Long): Flow<UserEntity?> =
+        trainingDao.observeUser(userId)
+
+    fun observeTrainingRecord(recordId: Long): Flow<TrainingRecordEntity?> =
+        trainingDao.observeTrainingRecord(recordId)
+
+    fun observeEvaluationsForRecord(recordId: Long): Flow<List<WeeklyEvaluationEntity>> =
+        trainingDao.observeEvaluationsForRecord(recordId)
+
+    fun observeSubmissionsForRecord(recordId: Long): Flow<List<TaskSubmissionEntity>> =
+        trainingDao.observeSubmissionsForRecord(recordId)
+
+    fun observeSupervisorsForRecord(recordId: Long): Flow<List<RecordSupervisorRow>> =
+        trainingDao.observeSupervisorsForRecord(recordId)
 }

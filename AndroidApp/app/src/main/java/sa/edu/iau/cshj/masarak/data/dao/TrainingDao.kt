@@ -7,6 +7,8 @@ import sa.edu.iau.cshj.masarak.data.entity.TrainingRecordEntity
 import sa.edu.iau.cshj.masarak.data.entity.TrainingWeekEntity
 import sa.edu.iau.cshj.masarak.data.entity.WeeklyEvaluationEntity
 import sa.edu.iau.cshj.masarak.data.entity.SupervisorLinkEntity
+import sa.edu.iau.cshj.masarak.data.entity.TaskSubmissionEntity
+import sa.edu.iau.cshj.masarak.data.entity.UserEntity
 import kotlinx.coroutines.flow.Flow
 import androidx.room.ColumnInfo
 
@@ -29,6 +31,20 @@ data class SupervisorPersonRow(
 
     @ColumnInfo(name = "status")
     val linkStatus: String
+)
+// One row per supervisor linked to a training record (used by My Training & Weekly Evaluation)
+data class RecordSupervisorRow(
+    @ColumnInfo(name = "supervisorId")
+    val supervisorId: Long,
+
+    @ColumnInfo(name = "fullName")
+    val fullName: String,
+
+    @ColumnInfo(name = "supervisorRole")
+    val supervisorRole: String,
+
+    @ColumnInfo(name = "status")
+    val status: String
 )
 @Dao
 interface TrainingDao {
@@ -87,4 +103,44 @@ interface TrainingDao {
         recordId: Long,
         supervisorId: Long
     ): SupervisorLinkEntity?
+
+    // ---------- My Training & Weekly Evaluation screens ----------
+
+    @Query("SELECT * FROM users WHERE email = :email LIMIT 1")
+    suspend fun getUserByEmail(email: String): UserEntity?
+
+    @Query("SELECT * FROM users WHERE userId = :userId LIMIT 1")
+    fun observeUser(userId: Long): Flow<UserEntity?>
+
+    @Query("SELECT * FROM training_records WHERE recordId = :recordId LIMIT 1")
+    fun observeTrainingRecord(recordId: Long): Flow<TrainingRecordEntity?>
+
+    @Query("""
+    SELECT weekly_evaluations.* FROM weekly_evaluations
+    INNER JOIN training_weeks
+        ON training_weeks.weekId = weekly_evaluations.weekId
+    WHERE training_weeks.recordId = :recordId
+""")
+    fun observeEvaluationsForRecord(recordId: Long): Flow<List<WeeklyEvaluationEntity>>
+
+    @Query("""
+    SELECT task_submissions.* FROM task_submissions
+    INNER JOIN tasks
+        ON tasks.taskId = task_submissions.taskId
+    WHERE tasks.recordId = :recordId
+""")
+    fun observeSubmissionsForRecord(recordId: Long): Flow<List<TaskSubmissionEntity>>
+
+    @Query("""
+    SELECT users.userId AS supervisorId,
+           users.fullName AS fullName,
+           supervisor_links.supervisorRole AS supervisorRole,
+           supervisor_links.status AS status
+    FROM supervisor_links
+    INNER JOIN users
+        ON users.userId = supervisor_links.supervisorId
+    WHERE supervisor_links.recordId = :recordId
+    ORDER BY supervisor_links.requestedAt DESC
+""")
+    fun observeSupervisorsForRecord(recordId: Long): Flow<List<RecordSupervisorRow>>
 }
