@@ -22,16 +22,57 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import sa.edu.iau.cshj.masarak.ui.screens.tasks.StudentTaskForm
-
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import java.time.LocalDate
+import java.time.YearMonth
+import androidx.compose.foundation.clickable
 private val DateNavy = Color(0xFF0C0D45)
 
 @Composable
-fun DatePickerDialog(onDismiss: () -> Unit = {}) {
-    Dialog(onDismissRequest = onDismiss) { DatePickerLayout(onDismiss) }
+
+fun DatePickerDialog(
+    onDismiss: () -> Unit = {},
+    onDateSelected: (Long) -> Unit = {}
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        DatePickerLayout(
+            onDismiss = onDismiss,
+            onDateSelected = onDateSelected
+        )    }
 }
 
+
 @Composable
-private fun DatePickerLayout(onDismiss: () -> Unit = {}) {
+
+private fun DatePickerLayout(
+    onDismiss: () -> Unit = {},
+    onDateSelected: (Long) -> Unit = {}
+) {
+
+
+    val today = LocalDate.now()
+
+    var selectedDay by rememberSaveable {
+        mutableIntStateOf(today.dayOfMonth)
+    }
+
+    var displayedMonth by rememberSaveable {
+        mutableIntStateOf(today.monthValue)
+    }
+
+    var displayedYear by rememberSaveable {
+        mutableIntStateOf(today.year)
+    }
+    val currentMonth = YearMonth.of(displayedYear, displayedMonth)
+
+    val safeSelectedDay = selectedDay.coerceIn(
+        1,
+        currentMonth.lengthOfMonth()
+    )
+
     Surface(
         modifier = Modifier.widthIn(max = 340.dp).fillMaxWidth(),
         shape = RoundedCornerShape(22.dp), color = Color.White
@@ -43,10 +84,49 @@ private fun DatePickerLayout(onDismiss: () -> Unit = {}) {
             Spacer(Modifier.height(14.dp))
             HorizontalDivider(color = Color(0xFFE3E3E8))
             Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.ChevronLeft, "Previous month", tint = DateNavy)
-                Text("September 2026", Modifier.weight(1f).padding(horizontal = 10.dp),
-                    color = DateNavy, fontWeight = FontWeight.SemiBold)
-                Icon(Icons.Outlined.ChevronRight, "Next month", tint = DateNavy)
+
+                IconButton(
+                    onClick = {
+                        val previousMonth =
+                            YearMonth.of(displayedYear, displayedMonth)
+                                .minusMonths(1)
+
+                        displayedMonth = previousMonth.monthValue
+                        displayedYear = previousMonth.year
+                    }
+                ) {
+                    Icon(
+                        Icons.Outlined.ChevronLeft,
+                        contentDescription = "Previous month",
+                        tint = DateNavy
+                    )
+                }
+                Text(
+                    "${
+                        YearMonth.of(displayedYear, displayedMonth).month.name.lowercase()
+                            .replaceFirstChar { it.uppercase() }
+                    } $displayedYear", Modifier.weight(1f).padding(horizontal = 10.dp),
+                    color = DateNavy, fontWeight = FontWeight.SemiBold
+                )
+
+                IconButton(
+                    onClick = {
+                        val nextMonth =
+                            YearMonth.of(displayedYear, displayedMonth)
+                                .plusMonths(1)
+
+                        if (!nextMonth.atDay(1).isAfter(today)) {
+                            displayedMonth = nextMonth.monthValue
+                            displayedYear = nextMonth.year
+                        }
+                    }
+                ) {
+                    Icon(
+                        Icons.Outlined.ChevronRight,
+                        contentDescription = "Next month",
+                        tint = DateNavy
+                    )
+                }
             }
             Row(Modifier.fillMaxWidth()) {
                 listOf("S", "M", "T", "W", "T", "F", "S").forEach {
@@ -55,16 +135,55 @@ private fun DatePickerLayout(onDismiss: () -> Unit = {}) {
                     }
                 }
             }
-            val days = List(2) { "" } + (1..30).map { it.toString() } + List(3) { "" }
-            days.chunked(7).forEach { week ->
-                Row(Modifier.fillMaxWidth()) {
+
+            val month = YearMonth.of(displayedYear, displayedMonth)
+
+            val firstDayOffset =
+                month.atDay(1).dayOfWeek.value % 7
+
+            val days =
+                List(firstDayOffset) { "" } +
+                        (1..month.lengthOfMonth()).map { it.toString() }
+
+            val paddedDays =
+                days + List((7 - days.size % 7) % 7) { "" }
+            paddedDays.chunked(7).forEach { week ->                Row(Modifier.fillMaxWidth()) {
                     week.forEach { day ->
                         Box(Modifier.weight(1f).height(36.dp), contentAlignment = Alignment.Center) {
-                            Box(Modifier.size(32.dp).background(
-                                if (day == "14") DateNavy else Color.Transparent, CircleShape
-                            ), contentAlignment = Alignment.Center) {
-                                Text(day, color = if (day == "14") Color.White else if ((day.toIntOrNull() ?: 0) > 14) Color(0xFF9C9CA5) else DateNavy, fontSize = 13.sp)
+
+                            val dayNumber = day.toIntOrNull()
+                            val isSelected = dayNumber != null &&
+                                    dayNumber == safeSelectedDay &&
+                                    !month.atDay(dayNumber).isAfter(today)
+
+                            val isEnabled = dayNumber != null &&
+                                    !month.atDay(dayNumber ?: 1).isAfter(today)
+
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clickable(enabled = isEnabled) {
+                                        if (dayNumber != null) {
+                                            selectedDay = dayNumber
+                                        }
+                                    }
+                                    .background(
+                                        if (isSelected) DateNavy else Color.Transparent,
+                                        CircleShape
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = day,
+                                    color = when {
+                                        isSelected -> Color.White
+                                        !isEnabled -> Color(0xFF9C9CA5)
+                                        else -> DateNavy
+                                    },
+                                    fontSize = 13.sp
+                                )
                             }
+
                         }
                     }
                 }
@@ -74,7 +193,36 @@ private fun DatePickerLayout(onDismiss: () -> Unit = {}) {
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 TextButton(onClick = onDismiss) { Text("Cancel", color = Color(0xFF00696E)) }
-                TextButton(onClick = onDismiss) { Text("OK", color = Color(0xFF00696E), fontWeight = FontWeight.Bold) }
+
+                TextButton(
+                    onClick = {
+                        val safeDay = selectedDay.coerceIn(
+                            1,
+                            YearMonth.of(displayedYear, displayedMonth).lengthOfMonth()
+                        )
+
+                        val chosenDate = LocalDate.of(
+                            displayedYear,
+                            displayedMonth,
+                            safeDay
+                        )
+
+                        if (!chosenDate.isAfter(today)) {
+                            onDateSelected(
+                                chosenDate.atStartOfDay(
+                                    java.time.ZoneId.systemDefault()
+                                ).toInstant().toEpochMilli()
+                            )
+                            onDismiss()
+                        }
+                    }
+                ) {
+                    Text(
+                        "OK",
+                        color = Color(0xFF00696E),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }

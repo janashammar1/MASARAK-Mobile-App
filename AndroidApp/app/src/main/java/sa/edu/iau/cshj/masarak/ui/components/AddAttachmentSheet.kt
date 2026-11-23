@@ -23,20 +23,36 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.clickable
 
 private val AttachmentNavy = Color(0xFF0C0D45)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddAttachmentSheet(onDismiss: () -> Unit = {}) {
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color.White, dragHandle = null) {
-        AttachmentLayout()
+
+fun AddAttachmentSheet(
+    onDismiss: () -> Unit = {},
+    onImageClick: () -> Unit = {},
+    onFileClick: () -> Unit = {}
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = Color.White,
+        dragHandle = null
+    ) {
+        AttachmentLayout(
+            onImageClick = onImageClick,
+            onFileClick = onFileClick
+        )
     }
 }
 
+
 @Composable
-private fun AttachmentLayout() {
-    Surface(
+private fun AttachmentLayout(
+    onImageClick: () -> Unit = {},
+    onFileClick: () -> Unit = {}
+) {   Surface(
         modifier = Modifier.fillMaxWidth(),
         color = Color.White, shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
@@ -55,9 +71,23 @@ private fun AttachmentLayout() {
                 color = Color.White, border = BorderStroke(1.dp, Color(0xFFDEDDDA))
             ) {
                 Column {
-                    AttachmentOption(Icons.Outlined.Image, "Image", "From your photos", true)
+
+                    AttachmentOption(
+                        icon = Icons.Outlined.Image,
+                        label = "Image",
+                        subtitle = "From your photos",
+                        image = true,
+                        onClick = onImageClick
+                    )
                     HorizontalDivider(color = Color(0xFFE3E3E8))
-                    AttachmentOption(Icons.Outlined.Description, "File", "PDF or document", false)
+
+                    AttachmentOption(
+                        icon = Icons.Outlined.Description,
+                        label = "File",
+                        subtitle = "PDF or document",
+                        image = false,
+                        onClick = onFileClick
+                    )
                 }
             }
             Spacer(Modifier.height(20.dp))
@@ -66,9 +96,21 @@ private fun AttachmentLayout() {
 }
 
 @Composable
-private fun AttachmentOption(icon: ImageVector, label: String, subtitle: String, image: Boolean) {
+
+private fun AttachmentOption(
+    icon: ImageVector,
+    label: String,
+    subtitle: String,
+    image: Boolean,
+    onClick: () -> Unit = {}
+) {
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 66.dp).padding(horizontal = 14.dp),
+
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 66.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(Modifier.size(36.dp).background(if (image) Color(0xFFCEF0EF) else Color(0xFFE5E7F5), RoundedCornerShape(10.dp)),
