@@ -58,6 +58,12 @@ class TrainingRepository(private val trainingDao: TrainingDao) {
     ): SupervisorLinkEntity? =
         trainingDao.getLinkRequest(recordId, supervisorId)
 
+    suspend fun getAcceptedFieldLink(
+        recordId: Long,
+        supervisorId: Long
+    ): SupervisorLinkEntity? =
+        trainingDao.getAcceptedFieldLink(recordId, supervisorId)
+
     fun observeUser(userId: Long): Flow<UserEntity?> =
         trainingDao.observeUser(userId)
 

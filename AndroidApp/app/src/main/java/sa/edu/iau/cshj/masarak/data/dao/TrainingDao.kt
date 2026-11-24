@@ -144,19 +144,36 @@ interface TrainingDao {
     @Upsert
     suspend fun insertSupervisorLink(link: SupervisorLinkEntity): Long
 
+
+    // Return the latest request regardless of role or status.
+// Used for duplicate prevention and demo-data setup.
     @Query("""
-        SELECT * FROM supervisor_links
-        WHERE recordId = :recordId
-          AND supervisorId = :supervisorId
-          AND LOWER(TRIM(status)) = 'accepted'
-          AND LOWER(TRIM(supervisorRole)) = 'field'
-        ORDER BY respondedAt DESC
-        LIMIT 1
-    """)
+    SELECT * FROM supervisor_links
+    WHERE recordId = :recordId
+      AND supervisorId = :supervisorId
+    ORDER BY requestedAt DESC, linkId DESC
+    LIMIT 1
+""")
     suspend fun getLinkRequest(
         recordId: Long,
         supervisorId: Long
     ): SupervisorLinkEntity?
+
+    // Return only an accepted field supervisor link.
+    @Query("""
+    SELECT * FROM supervisor_links
+    WHERE recordId = :recordId
+      AND supervisorId = :supervisorId
+      AND LOWER(TRIM(status)) = 'accepted'
+      AND LOWER(TRIM(supervisorRole)) = 'field'
+    ORDER BY respondedAt DESC, requestedAt DESC, linkId DESC
+    LIMIT 1
+""")
+    suspend fun getAcceptedFieldLink(
+        recordId: Long,
+        supervisorId: Long
+    ): SupervisorLinkEntity?
+
 
     // ---------- My Training & Weekly Evaluation screens ----------
 

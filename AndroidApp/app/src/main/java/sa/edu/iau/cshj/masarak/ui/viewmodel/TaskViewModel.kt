@@ -137,4 +137,8 @@ class TaskViewModel(
     suspend fun addReview(review: TaskReviewEntity): Long {
         return taskRepository.insertReview(review)
     }
+
+    suspend fun saveAcademicReview(review: TaskReviewEntity): Long {
+        return taskRepository.saveAcademicReview(review)
+    }
 }

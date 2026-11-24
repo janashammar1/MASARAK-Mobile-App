@@ -175,7 +175,7 @@ fun ReviewRelevanceScreen(
                         isSaving = true
 
                         try {
-                            taskViewModel.addReview(
+                            taskViewModel.saveAcademicReview(
                                 TaskReviewEntity(
                                     submissionId = submissionId,
                                     reviewerId = reviewerId,

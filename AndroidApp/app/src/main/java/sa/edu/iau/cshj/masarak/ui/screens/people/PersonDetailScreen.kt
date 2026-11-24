@@ -205,7 +205,11 @@ private fun PersonDetailLayout(
 
             val latestSubmission = submissions[task.taskId]
                 .orEmpty()
-                .maxByOrNull { it.taskDate }
+                .maxWithOrNull(
+                    compareBy<TaskSubmissionEntity> { it.attemptNo }
+                        .thenBy { it.submittedAt }
+                        .thenBy { it.submissionId }
+                )
 
             latestSubmission?.let { submission ->
 

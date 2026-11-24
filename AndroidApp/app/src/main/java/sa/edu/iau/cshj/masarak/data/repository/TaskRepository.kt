@@ -139,19 +139,24 @@ class TaskRepository(
     ): Flow<List<TaskReviewEntity>> =
         taskDao.getReviewsForSubmission(submissionId)
 
+    // General review save path.
     suspend fun insertReview(
         review: TaskReviewEntity
     ): Long = DatabaseProvider.db.withTransaction {
+        upsertReview(review)
+    }
 
-        // Only academic reviews are allowed through this operation.
+    // Academic reviews require an accepted academic supervisor.
+    suspend fun saveAcademicReview(
+        review: TaskReviewEntity
+    ): Long = DatabaseProvider.db.withTransaction {
+
         if (!review.reviewStage.equals("Academic", ignoreCase = true)) {
             throw IllegalArgumentException(
-                "Invalid review stage."
+                "Invalid academic review stage."
             )
         }
 
-        // Verify that the reviewer is an accepted academic supervisor
-        // linked to the training record of this submission.
         val isAuthorized =
             taskDao.isAcceptedAcademicSupervisorForSubmission(
                 submissionId = review.submissionId,
@@ -164,13 +169,21 @@ class TaskRepository(
             )
         }
 
+        upsertReview(review)
+    }
+
+    // Insert a new review or update the existing one.
+    private suspend fun upsertReview(
+        review: TaskReviewEntity
+    ): Long {
+
         val existingReview = taskDao.getReviewByReviewerAndStage(
             submissionId = review.submissionId,
             reviewerId = review.reviewerId,
             reviewStage = review.reviewStage
         )
 
-        if (existingReview != null) {
+        return if (existingReview != null) {
             taskDao.updateReview(
                 review.copy(
                     reviewId = existingReview.reviewId

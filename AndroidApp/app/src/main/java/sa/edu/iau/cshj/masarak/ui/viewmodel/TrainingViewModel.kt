@@ -152,19 +152,10 @@ class TrainingViewModel(
 
         return try {
             // Verify that this user is linked to this exact training record.
-            val link = trainingRepository.getLinkRequest(
+            val link = trainingRepository.getAcceptedFieldLink(
                 recordId = week.recordId,
                 supervisorId = currentUserId
-            ) ?: return "You are not linked to this training record."
-
-            // Only an accepted field supervisor can confirm attendance.
-            if (link.status.trim().lowercase() != "accepted") {
-                return "Your supervisor link is not active."
-            }
-
-            if (link.supervisorRole.trim().lowercase() != "field") {
-                return "Only the field supervisor can confirm attendance."
-            }
+            ) ?: return "Only an accepted field supervisor linked to this training record can confirm attendance."
 
             if (week.confirmedAt != null || week.confirmedBy != null) {
                 return "This attendance week has already been confirmed."
