@@ -8,7 +8,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Event
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.PersonOutline
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,8 +23,8 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import sa.edu.iau.cshj.masarak.data.DatabaseProvider
 import sa.edu.iau.cshj.masarak.data.entity.TaskAttachmentEntity
 import sa.edu.iau.cshj.masarak.data.entity.TaskReviewEntity
 import sa.edu.iau.cshj.masarak.data.entity.TaskSubmissionEntity
@@ -34,6 +38,7 @@ import java.util.Locale
 @Composable
 fun ReviewRelevanceScreen(
     submissionId: Long = 0L,
+    reviewerId: Long? = null,
     onBackClick: () -> Unit = {}
 ) {
     val preview = LocalInspectionMode.current
@@ -44,69 +49,128 @@ fun ReviewRelevanceScreen(
             scrolled = false,
             onBackClick = onBackClick
         )
-    } else {
-        val taskViewModel: TaskViewModel =
-            viewModel(factory = MasarakViewModelFactory())
+        return
+    }
 
-        val scope = rememberCoroutineScope()
-        val snackbarHostState = remember { SnackbarHostState() }
+    val taskViewModel: TaskViewModel =
+        viewModel(factory = MasarakViewModelFactory())
 
-        val submission by taskViewModel.selectedSubmission.collectAsState()
-        val attachmentsMap by taskViewModel.attachments.collectAsState()
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
-        val attachments = attachmentsMap[submissionId] ?: emptyList()
+    val selectedSubmission by
+    taskViewModel.selectedSubmission.collectAsState()
 
-        var reviewerId by remember { mutableStateOf<Long?>(null) }
-        var selectedDecision by remember { mutableStateOf("Partially Relevant") }
-        var comment by remember { mutableStateOf("") }
-        var isSaving by remember { mutableStateOf(false) }
+    val attachmentsMap by
+    taskViewModel.attachments.collectAsState()
 
-        LaunchedEffect(submissionId) {
+    val reviewsMap by
+    taskViewModel.reviews.collectAsState()
+
+    val submission = selectedSubmission
+        ?.takeIf { it.submissionId == submissionId }
+
+    val attachments = attachmentsMap[submissionId].orEmpty()
+
+    val academicReview = reviewsMap[submissionId]
+        .orEmpty()
+        .filter {
+            it.reviewStage.equals("Academic", ignoreCase = true)
+        }
+        .maxByOrNull { it.reviewedAt }
+
+    var selectedDecision by remember(submissionId) {
+        mutableStateOf("Partially Relevant")
+    }
+
+    var comment by remember(submissionId) {
+        mutableStateOf("")
+    }
+
+    var isSaving by remember(submissionId) {
+        mutableStateOf(false)
+    }
+
+    LaunchedEffect(submissionId) {
+        if (submissionId > 0L) {
             taskViewModel.loadSubmission(submissionId)
             taskViewModel.loadAttachments(submissionId)
+            taskViewModel.loadReviews(submissionId)
         }
+    }
 
-        LaunchedEffect(Unit) {
-            reviewerId = DatabaseProvider.db.userDao()
-                .getUserByEmail("supervisor.academic@iau.edu.sa")
-                ?.userId
-        }
+    LaunchedEffect(academicReview) {
+        selectedDecision =
+            academicReview?.decision ?: "Partially Relevant"
 
-        ReviewRelevanceLayout(
-            preview = false,
-            scrolled = false,
-            onBackClick = onBackClick,
-            submission = submission,
-            attachments = attachments,
-            selectedDecision = selectedDecision,
-            onDecisionChange = { selectedDecision = it },
-            comment = comment,
-            onCommentChange = { comment = it },
-            isSaving = isSaving,
-            snackbarHostState = snackbarHostState,
-            onSave = {
-                if (submissionId <= 0L) {
+        comment = academicReview?.comment.orEmpty()
+    }
+
+    ReviewRelevanceLayout(
+        preview = false,
+        scrolled = false,
+        onBackClick = onBackClick,
+        submission = submission,
+        attachments = attachments,
+        selectedDecision = selectedDecision,
+        onDecisionChange = {
+            selectedDecision = it
+        },
+        comment = comment,
+        onCommentChange = {
+            comment = it
+        },
+        isSaving = isSaving,
+        snackbarHostState = snackbarHostState,
+        onSave = {
+            when {
+                submissionId <= 0L -> {
                     scope.launch {
                         snackbarHostState.showSnackbar(
                             "Submission ID is missing."
                         )
                     }
-                } else if (reviewerId == null) {
+                }
+
+                submission == null -> {
                     scope.launch {
                         snackbarHostState.showSnackbar(
-                            "Academic supervisor account was not found."
+                            "The selected submission could not be loaded."
                         )
                     }
-                } else if (
-                    selectedDecision != "Relevant" &&
-                    comment.isBlank()
-                ) {
+                }
+
+                reviewerId == null || reviewerId <= 0L -> {
+                    scope.launch {
+                        snackbarHostState.showSnackbar(
+                            "Unable to identify the current supervisor."
+                        )
+                    }
+                }
+
+                selectedDecision !in listOf(
+                    "Relevant",
+                    "Partially Relevant",
+                    "Not Relevant"
+                ) -> {
+                    scope.launch {
+                        snackbarHostState.showSnackbar(
+                            "Please select a valid review decision."
+                        )
+                    }
+                }
+
+                selectedDecision != "Relevant" && comment.isBlank() -> {
                     scope.launch {
                         snackbarHostState.showSnackbar(
                             "Please add a note for this decision."
                         )
                     }
-                } else {
+                }
+
+                isSaving -> Unit
+
+                else -> {
                     scope.launch {
                         isSaving = true
 
@@ -114,29 +178,37 @@ fun ReviewRelevanceScreen(
                             taskViewModel.addReview(
                                 TaskReviewEntity(
                                     submissionId = submissionId,
-                                    reviewerId = reviewerId!!,
+                                    reviewerId = reviewerId,
                                     reviewStage = "Academic",
                                     decision = selectedDecision,
-                                    comment = comment.trim().ifBlank { null },
+                                    comment = comment.trim()
+                                        .ifBlank { null },
                                     reviewedAt = System.currentTimeMillis()
                                 )
                             )
 
+                            taskViewModel.loadReviews(submissionId)
+
                             snackbarHostState.showSnackbar(
                                 "Review saved successfully."
                             )
-                        } catch (e: Exception) {
+
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+
+                        } catch (exception: Exception) {
                             snackbarHostState.showSnackbar(
-                                "Could not save review: ${e.message}"
+                                "Could not save review. Please try again."
                             )
+
                         } finally {
                             isSaving = false
                         }
                     }
                 }
             }
-        )
-    }
+        }
+    )
 }
 
 @Composable
@@ -174,7 +246,10 @@ private fun ReviewRelevanceLayout(
                 Box(
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 19.dp, vertical = 11.dp)
+                        .padding(
+                            horizontal = 19.dp,
+                            vertical = 11.dp
+                        )
                         .height(45.dp)
                         .background(
                             if (isSaving) PeopleMuted else PeopleNavy,
@@ -206,7 +281,10 @@ private fun ReviewRelevanceLayout(
                         )
                     )
                     .padding(horizontal = 19.dp)
-                    .padding(top = 14.dp, bottom = 23.dp)
+                    .padding(
+                        top = 14.dp,
+                        bottom = 23.dp
+                    )
             ) {
                 RelevanceTask(
                     submission = submission,
@@ -216,54 +294,12 @@ private fun ReviewRelevanceLayout(
 
                 Spacer(Modifier.height(23.dp))
 
-                PeopleText("REVIEW", 12, PeopleMuted, bold = true)
-
-                Spacer(Modifier.height(14.dp))
-
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .background(
-                            Color(0xFFF8E3B6),
-                            RoundedCornerShape(17.dp)
-                        )
-                        .padding(15.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Outlined.Badge,
-                            null,
-                            Modifier.size(17.dp),
-                            tint = Color(0xFF3D2A0B)
-                        )
-
-                        Spacer(Modifier.width(8.dp))
-
-                        PeopleText(
-                            "Eng. Khalid · approved",
-                            13,
-                            Color(0xFF3D2A0B),
-                            bold = true,
-                            modifier = Modifier.weight(1f)
-                        )
-
-                        PeopleText("09:30", 11, Color(0xFF685431))
-                    }
-
-                    Spacer(Modifier.height(9.dp))
-
-                    PeopleText(
-                        "Clean structure and clear validation. Add screenshots of the login flow next time.",
-                        14,
-                        Color(0xFF3D2A0B)
-                    )
-                }
-
-                Spacer(Modifier.height(22.dp))
-                HorizontalDivider(color = PeopleLine)
-                Spacer(Modifier.height(15.dp))
-
-                PeopleText("YOUR REVIEW", 12, PeopleMuted, bold = true)
+                PeopleText(
+                    "REVIEW",
+                    12,
+                    PeopleMuted,
+                    bold = true
+                )
 
                 Spacer(Modifier.height(14.dp))
 
@@ -314,7 +350,11 @@ private fun ReviewRelevanceLayout(
 
                 Spacer(Modifier.height(10.dp))
 
-                PeopleText("Note for Sara", 12, bold = true)
+                PeopleText(
+                    "Review note",
+                    12,
+                    bold = true
+                )
 
                 Spacer(Modifier.height(7.dp))
 
@@ -371,25 +411,20 @@ private fun RelevanceTask(
                 .padding(15.dp)
         ) {
             PeopleText(
-                submission?.title ?: if (preview) "Build the login API" else "Loading submission...",
+                submission?.title
+                    ?: if (preview) " " else "Loading submission...",
                 16,
                 bold = true
             )
 
-            Spacer(Modifier.height(10.dp))
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                PeopleAvatar("SA", small = true)
-                Spacer(Modifier.width(9.dp))
-                PeopleText("Sara Alqahtani", 13)
-            }
-
             Spacer(Modifier.height(11.dp))
 
             val formattedDate = submission?.let {
-                SimpleDateFormat("dd MMM", Locale.getDefault())
-                    .format(Date(it.taskDate))
-            } ?: if (preview) "10 Sep" else "--"
+                SimpleDateFormat(
+                    "dd MMM",
+                    Locale.getDefault()
+                ).format(Date(it.taskDate))
+            } ?: "--"
 
             val duration = submission?.let {
                 if (it.durationMinutes % 60 == 0) {
@@ -397,53 +432,79 @@ private fun RelevanceTask(
                 } else {
                     "${it.durationMinutes / 60} h ${it.durationMinutes % 60} min"
                 }
-            } ?: if (preview) "6 h" else "--"
+            } ?: "--"
 
-            val taskType = submission?.taskType
-                ?: if (preview) "Individual" else "--"
+            val taskType = submission?.taskType ?: "--"
 
             Row(
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                RelevanceMetric(Icons.Outlined.Event, formattedDate)
-                RelevanceMetric(Icons.Outlined.Schedule, duration)
-                RelevanceMetric(Icons.Outlined.PersonOutline, taskType)
+                RelevanceMetric(
+                    Icons.Outlined.Event,
+                    formattedDate
+                )
+
+                RelevanceMetric(
+                    Icons.Outlined.Schedule,
+                    duration
+                )
+
+                RelevanceMetric(
+                    Icons.Outlined.PersonOutline,
+                    taskType
+                )
             }
 
             RelevanceDivider()
 
-            PeopleText("Description", 12, PeopleMuted, bold = true)
+            PeopleText(
+                "Description",
+                12,
+                PeopleMuted,
+                bold = true
+            )
+
             Spacer(Modifier.height(5.dp))
 
             PeopleText(
                 submission?.description
-                    ?: if (preview) {
-                        "Built the login endpoint with token sign-in, then tested it with the mobile app."
-                    } else {
-                        "No description available."
-                    },
+                    ?.takeIf { it.isNotBlank() }
+                    ?: "No description available.",
                 14
             )
 
             RelevanceDivider()
 
-            PeopleText("Challenges", 12, PeopleMuted, bold = true)
+            PeopleText(
+                "Challenges",
+                12,
+                PeopleMuted,
+                bold = true
+            )
+
             Spacer(Modifier.height(5.dp))
 
             PeopleText(
-                submission?.challenges?.takeIf { it.isNotBlank() }
-                    ?: if (preview) "Handling expired tokens." else "No challenges provided.",
+                submission?.challenges
+                    ?.takeIf { it.isNotBlank() }
+                    ?: "No challenges provided.",
                 14
             )
 
             RelevanceDivider()
 
-            PeopleText("Evidence", 12, PeopleMuted, bold = true)
+            PeopleText(
+                "Evidence",
+                12,
+                PeopleMuted,
+                bold = true
+            )
+
             Spacer(Modifier.height(8.dp))
 
             if (attachments.isEmpty()) {
                 PeopleText(
-                    if (preview) "login-flow.png · api-notes.pdf" else "No attachments available.",
+                    "No attachments available.",
                     12,
                     PeopleMuted
                 )
@@ -456,13 +517,15 @@ private fun RelevanceTask(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                if (attachment.mimeType.startsWith("image")) {
+                                imageVector = if (
+                                    attachment.mimeType.startsWith("image")
+                                ) {
                                     Icons.Outlined.Image
                                 } else {
                                     Icons.Outlined.Description
                                 },
-                                null,
-                                Modifier.size(17.dp),
+                                contentDescription = null,
+                                modifier = Modifier.size(17.dp),
                                 tint = PeopleTeal
                             )
 
@@ -490,11 +553,12 @@ private fun RelevanceMetric(
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Icon(
-            icon,
-            null,
-            Modifier.size(15.dp),
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(15.dp),
             tint = PeopleMuted
         )
+
         PeopleText(label, 12)
     }
 }
@@ -502,27 +566,37 @@ private fun RelevanceMetric(
 @Composable
 private fun RelevanceDivider() {
     HorizontalDivider(
-        Modifier.padding(vertical = 10.dp),
+        modifier = Modifier.padding(vertical = 10.dp),
         color = PeopleLine
     )
 }
 
-@Preview(name = "Review relevance", widthDp = 390, heightDp = 844)
+@Preview(
+    name = "Review relevance",
+    widthDp = 390,
+    heightDp = 844
+)
 @Composable
-private fun ReviewRelevancePreview() =
+private fun ReviewRelevancePreview() {
     MaterialTheme {
         ReviewRelevanceLayout(
             preview = true,
             scrolled = false
         )
     }
+}
 
-@Preview(name = "Review relevance · scrolled", widthDp = 390, heightDp = 844)
+@Preview(
+    name = "Review relevance - scrolled",
+    widthDp = 390,
+    heightDp = 844
+)
 @Composable
-private fun ReviewRelevanceScrolledPreview() =
+private fun ReviewRelevanceScrolledPreview() {
     MaterialTheme {
         ReviewRelevanceLayout(
             preview = true,
             scrolled = true
         )
     }
+}
