@@ -44,8 +44,10 @@ private val LoginBorder = Color(0xFF93939D)
 
 @Composable
 fun LoginScreen(
-    onSignIn: (String, String) -> Unit = { _, _ -> }
-) {
+    onSignIn: (String, String) -> Unit = { _, _ -> },
+    errorMessage: String? = null
+)
+ {
     var email by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
@@ -162,7 +164,13 @@ fun LoginScreen(
                 }
             }
         )
-
+        if (!errorMessage.isNullOrBlank()) {
+            Text(
+                text = errorMessage,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
         Spacer(Modifier.height(6.dp))
 
         TextButton(

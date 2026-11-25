@@ -1,3 +1,4 @@
+
 package sa.edu.iau.cshj.masarak.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
@@ -22,112 +23,278 @@ import sa.edu.iau.cshj.masarak.data.dao.SupervisorPersonRow
 import sa.edu.iau.cshj.masarak.notifications.NotificationEvent
 import sa.edu.iau.cshj.masarak.notifications.NotificationEvents
 
-
 class TrainingViewModel(
     private val trainingRepository: TrainingRepository,
     private val now: () -> Long = System::currentTimeMillis
 ) : ViewModel() {
-    private val _people = MutableStateFlow<List<SupervisorPersonRow>>(emptyList())
-    val people: StateFlow<List<SupervisorPersonRow>> = _people.asStateFlow()
-    private val _trainingRecords = MutableStateFlow<List<TrainingRecordEntity>>(emptyList())
-    val trainingRecords: StateFlow<List<TrainingRecordEntity>> = _trainingRecords.asStateFlow()
 
-    private val _trainingWeeks = MutableStateFlow<List<TrainingWeekEntity>>(emptyList())
-    val trainingWeeks: StateFlow<List<TrainingWeekEntity>> = _trainingWeeks.asStateFlow()
+    // People list
+    private val _people =
+        MutableStateFlow<List<SupervisorPersonRow>>(emptyList())
+    val people: StateFlow<List<SupervisorPersonRow>> =
+        _people.asStateFlow()
+
+    private val _peopleLoading = MutableStateFlow(false)
+    val peopleLoading: StateFlow<Boolean> =
+        _peopleLoading.asStateFlow()
+
+    private val _peopleError = MutableStateFlow<String?>(null)
+    val peopleError: StateFlow<String?> =
+        _peopleError.asStateFlow()
+
+    private var peopleJob: Job? = null
+
+    // Training records
+    private val _trainingRecords =
+        MutableStateFlow<List<TrainingRecordEntity>>(emptyList())
+    val trainingRecords: StateFlow<List<TrainingRecordEntity>> =
+        _trainingRecords.asStateFlow()
+
+    private val _trainingWeeks =
+        MutableStateFlow<List<TrainingWeekEntity>>(emptyList())
+    val trainingWeeks: StateFlow<List<TrainingWeekEntity>> =
+        _trainingWeeks.asStateFlow()
 
     fun loadTrainingRecords(studentId: Long) {
         viewModelScope.launch {
-            trainingRepository.getTrainingRecordsForStudent(studentId).collect { records ->
-                _trainingRecords.value = records
-            }
+            trainingRepository
+                .getTrainingRecordsForStudent(studentId)
+                .collect { records ->
+                    _trainingRecords.value = records
+                }
         }
     }
 
     fun loadTrainingWeeks(recordId: Long) {
         viewModelScope.launch {
-            trainingRepository.getTrainingWeeksForRecord(recordId).collect { weeks ->
-                _trainingWeeks.value = weeks
+            trainingRepository
+                .getTrainingWeeksForRecord(recordId)
+                .collect { weeks ->
+                    _trainingWeeks.value = weeks
+                }
+        }
+    }
+
+    // Load people for the current supervisor using user ID
+    fun loadPeopleForSupervisor(
+        supervisorId: Long,
+        reviewStage: String
+    ) {
+        peopleJob?.cancel()
+
+        if (supervisorId <= 0L) {
+            _people.value = emptyList()
+            _peopleError.value =
+                "Unable to identify the current supervisor."
+            _peopleLoading.value = false
+            return
+        }
+
+        peopleJob = viewModelScope.launch {
+            _peopleLoading.value = true
+            _peopleError.value = null
+            _people.value = emptyList()
+
+            try {
+                trainingRepository
+                    .getPeopleForSupervisor(
+                        supervisorId,
+                        reviewStage
+                    )
+                    .collect { result ->
+                        _people.value = result
+                        _peopleLoading.value = false
+                    }
+
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+
+            } catch (e: Exception) {
+                _people.value = emptyList()
+                _peopleError.value =
+                    "Unable to load people. Please try again."
+                _peopleLoading.value = false
             }
         }
     }
 
-    fun loadPeopleForSupervisor(supervisorEmail: String) {
-        viewModelScope.launch {
-            trainingRepository.getPeopleForSupervisor(supervisorEmail).collect { result ->
-                _people.value = result
-            }
-        }
-    }
-
-    suspend fun addTrainingRecord(record: TrainingRecordEntity): Long =
+    suspend fun addTrainingRecord(
+        record: TrainingRecordEntity
+    ): Long =
         trainingRepository.insertTrainingRecord(record)
 
-    suspend fun addTrainingWeek(week: TrainingWeekEntity): Long =
+    suspend fun addTrainingWeek(
+        week: TrainingWeekEntity
+    ): Long =
         trainingRepository.insertTrainingWeek(week)
 
-    suspend fun addWeeklyEvaluation(evaluation: WeeklyEvaluationEntity): Long =
+    suspend fun addWeeklyEvaluation(
+        evaluation: WeeklyEvaluationEntity
+    ): Long =
         trainingRepository.insertWeeklyEvaluation(evaluation)
 
-    // =====================================================================
-    // My Training · Weekly Evaluation · Academic Weekly Evaluation
-    // =====================================================================
+    /**
+     * Field supervisor confirms one attendance week.
+     * Returns null when saved, or an error message.
+     */
+    suspend fun confirmAttendance(
+        week: TrainingWeekEntity,
+        currentUserId: Long
+    ): String? {
 
-    private val _myTraining = MutableStateFlow(MyTrainingUiState())
-    val myTraining: StateFlow<MyTrainingUiState> = _myTraining.asStateFlow()
+        if (currentUserId <= 0L) {
+            return "Unable to identify the current supervisor."
+        }
 
-    private val _weeklyEvaluation = MutableStateFlow(WeeklyEvaluationUiState())
-    val weeklyEvaluation: StateFlow<WeeklyEvaluationUiState> = _weeklyEvaluation.asStateFlow()
+        if (week.weekId <= 0L || week.recordId <= 0L) {
+            return "Invalid attendance record."
+        }
 
-    private val _academicEvaluation = MutableStateFlow(AcademicEvaluationUiState())
-    val academicEvaluation: StateFlow<AcademicEvaluationUiState> = _academicEvaluation.asStateFlow()
+        return try {
+            // Verify that this user is linked to this exact training record.
+            val link = trainingRepository.getAcceptedFieldLink(
+                recordId = week.recordId,
+                supervisorId = currentUserId
+            ) ?: return "Only an accepted field supervisor linked to this training record can confirm attendance."
+
+            if (week.confirmedAt != null || week.confirmedBy != null) {
+                return "This attendance week has already been confirmed."
+            }
+
+            // Update the same Room row; preserve all existing week data.
+            val confirmedWeek = week.copy(
+                confirmedBy = currentUserId,
+                confirmedAt = now()
+            )
+
+            trainingRepository.insertTrainingWeek(confirmedWeek)
+
+            null
+
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (e: Exception) {
+            "Could not confirm attendance. Please try again."
+        }
+    }
+
+    private val _myTraining =
+        MutableStateFlow(MyTrainingUiState())
+    val myTraining: StateFlow<MyTrainingUiState> =
+        _myTraining.asStateFlow()
+
+    private val _weeklyEvaluation =
+        MutableStateFlow(WeeklyEvaluationUiState())
+    val weeklyEvaluation: StateFlow<WeeklyEvaluationUiState> =
+        _weeklyEvaluation.asStateFlow()
+
+    private val _academicEvaluation =
+        MutableStateFlow(AcademicEvaluationUiState())
+    val academicEvaluation: StateFlow<AcademicEvaluationUiState> =
+        _academicEvaluation.asStateFlow()
 
     // The latest data read from Room (used when saving)
     private var snapshot = TrainingSnapshot()
     private var loadJob: Job? = null
 
     /** Combines every table the screens need into one snapshot that updates by itself. */
-    private fun observeRecord(recordId: Long, student: UserEntity?): Flow<TrainingSnapshot> = combine(
+    private fun observeRecord(
+        recordId: Long,
+        student: UserEntity?
+    ): Flow<TrainingSnapshot> = combine(
         trainingRepository.observeTrainingRecord(recordId),
         trainingRepository.getTrainingWeeksForRecord(recordId),
         trainingRepository.observeEvaluationsForRecord(recordId),
         trainingRepository.observeSubmissionsForRecord(recordId),
         trainingRepository.observeSupervisorsForRecord(recordId)
     ) { record, weeks, evaluations, submissions, supervisors ->
-        TrainingSnapshot(student, record, weeks, evaluations, submissions, supervisors)
+        TrainingSnapshot(
+            student,
+            record,
+            weeks,
+            evaluations,
+            submissions,
+            supervisors
+        )
     }
 
     /** Student screens: find the student, pick the active training record, then watch it. */
     @OptIn(ExperimentalCoroutinesApi::class)
-    fun loadStudentTraining(studentEmail: String = DEMO_STUDENT_EMAIL) {
+    fun loadStudentTraining(
+        studentEmail: String = DEMO_STUDENT_EMAIL
+    ) {
         loadJob?.cancel()
-        _myTraining.value = MyTrainingUiState(isLoading = true)
-        _weeklyEvaluation.value = WeeklyEvaluationUiState(isLoading = true)
+
+        _myTraining.value =
+            MyTrainingUiState(isLoading = true)
+
+        _weeklyEvaluation.value =
+            WeeklyEvaluationUiState(isLoading = true)
+
         loadJob = viewModelScope.launch {
             try {
-                val student = trainingRepository.getUserByEmail(studentEmail)
+                val student =
+                    trainingRepository.getUserByEmail(studentEmail)
+
                 if (student == null) {
                     val message = "Student account not found."
-                    _myTraining.value = MyTrainingUiState(isLoading = false, error = message)
-                    _weeklyEvaluation.value = WeeklyEvaluationUiState(isLoading = false, error = message)
+
+                    _myTraining.value =
+                        MyTrainingUiState(
+                            isLoading = false,
+                            error = message
+                        )
+
+                    _weeklyEvaluation.value =
+                        WeeklyEvaluationUiState(
+                            isLoading = false,
+                            error = message
+                        )
+
                     return@launch
                 }
-                trainingRepository.getTrainingRecordsForStudent(student.userId)
+
+                trainingRepository
+                    .getTrainingRecordsForStudent(student.userId)
                     .flatMapLatest { records ->
-                        val record = TrainingLogic.pickRecord(records, now())
-                        if (record == null) flowOf(TrainingSnapshot(student = student))
-                        else observeRecord(record.recordId, student)
+
+                        val record =
+                            TrainingLogic.pickRecord(records, now())
+
+                        if (record == null) {
+                            flowOf(TrainingSnapshot(student = student))
+                        } else {
+                            observeRecord(record.recordId, student)
+                        }
                     }
                     .collect { data ->
                         snapshot = data
-                        _myTraining.value = TrainingLogic.myTraining(data, now())
-                        _weeklyEvaluation.value = TrainingLogic.studentEvaluation(data, now())
+
+                        _myTraining.value =
+                            TrainingLogic.myTraining(data, now())
+
+                        _weeklyEvaluation.value =
+                            TrainingLogic.studentEvaluation(data, now())
                     }
+
             } catch (cancelled: CancellationException) {
                 throw cancelled
+
             } catch (e: Exception) {
-                val message = "Could not load your training. Please try again."
-                _myTraining.value = MyTrainingUiState(isLoading = false, error = message)
-                _weeklyEvaluation.value = WeeklyEvaluationUiState(isLoading = false, error = message)
+                val message =
+                    "Could not load your training. Please try again."
+
+                _myTraining.value =
+                    MyTrainingUiState(
+                        isLoading = false,
+                        error = message
+                    )
+
+                _weeklyEvaluation.value =
+                    WeeklyEvaluationUiState(
+                        isLoading = false,
+                        error = message
+                    )
             }
         }
     }
@@ -136,29 +303,51 @@ class TrainingViewModel(
     @OptIn(ExperimentalCoroutinesApi::class)
     fun loadAcademicEvaluation(recordId: Long) {
         loadJob?.cancel()
-        _academicEvaluation.value = AcademicEvaluationUiState(isLoading = true)
+
+        _academicEvaluation.value =
+            AcademicEvaluationUiState(isLoading = true)
+
         if (recordId <= 0L) {
-            _academicEvaluation.value = AcademicEvaluationUiState(isLoading = false, error = "No student selected.")
+            _academicEvaluation.value =
+                AcademicEvaluationUiState(
+                    isLoading = false,
+                    error = "No student selected."
+                )
             return
         }
+
         loadJob = viewModelScope.launch {
             try {
-                trainingRepository.observeTrainingRecord(recordId)
+                trainingRepository
+                    .observeTrainingRecord(recordId)
                     .flatMapLatest { record ->
-                        if (record == null) flowOf(TrainingSnapshot())
-                        else trainingRepository.observeUser(record.studentId)
-                            .flatMapLatest { student -> observeRecord(recordId, student) }
+
+                        if (record == null) {
+                            flowOf(TrainingSnapshot())
+                        } else {
+                            trainingRepository
+                                .observeUser(record.studentId)
+                                .flatMapLatest { student ->
+                                    observeRecord(recordId, student)
+                                }
+                        }
                     }
                     .collect { data ->
                         snapshot = data
-                        _academicEvaluation.value = TrainingLogic.academicEvaluation(data, now())
+
+                        _academicEvaluation.value =
+                            TrainingLogic.academicEvaluation(data, now())
                     }
+
             } catch (cancelled: CancellationException) {
                 throw cancelled
+
             } catch (e: Exception) {
-                _academicEvaluation.value = AcademicEvaluationUiState(
-                    isLoading = false, error = "Could not load the evaluations. Please try again."
-                )
+                _academicEvaluation.value =
+                    AcademicEvaluationUiState(
+                        isLoading = false,
+                        error = "Could not load the evaluations. Please try again."
+                    )
             }
         }
     }
@@ -173,23 +362,40 @@ class TrainingViewModel(
         reportFileName: String?,
         reportFileRef: String?
     ): String? {
-        val record = snapshot.record ?: return "No training record found."
-        val state = _myTraining.value
-        if (!state.canSubmitCurrentWeek) return "This week can't be submitted now."
 
-        val input = TrainingLogic.validateWeek(daysText, hoursText)
+        val record =
+            snapshot.record ?: return "No training record found."
+
+        val state = _myTraining.value
+
+        if (!state.canSubmitCurrentWeek) {
+            return "This week can't be submitted now."
+        }
+
+        val input =
+            TrainingLogic.validateWeek(daysText, hoursText)
+
         if (input.error != null) return input.error
-        val reportName = reportFileName?.takeIf { it.isNotBlank() } ?: return "Attach your weekly report."
-        val reportRef = reportFileRef?.takeIf { it.isNotBlank() } ?: return "Attach your weekly report."
+
+        val reportName =
+            reportFileName?.takeIf { it.isNotBlank() }
+                ?: return "Attach your weekly report."
+
+        val reportRef =
+            reportFileRef?.takeIf { it.isNotBlank() }
+                ?: return "Attach your weekly report."
 
         return try {
             val existing = snapshot.weeks
                 .filter { it.weekNo == state.currentWeekNo }
                 .maxByOrNull { it.submittedAt }
-            if (existing?.confirmedAt != null) return "This week is already confirmed."
+
+            if (existing?.confirmedAt != null) {
+                return "This week is already confirmed."
+            }
 
             val week = TrainingWeekEntity(
-                weekId = existing?.weekId ?: 0L, // same id = update, 0 = new row
+                weekId = existing?.weekId ?: 0L,
                 recordId = record.recordId,
                 weekNo = state.currentWeekNo,
                 daysAttended = input.days,
@@ -198,11 +404,19 @@ class TrainingViewModel(
                 reportFileRef = reportRef,
                 submittedAt = now()
             )
-            val insertedId = trainingRepository.insertTrainingWeek(week)
-            val weekId = existing?.weekId ?: insertedId
+
+            val insertedId =
+                trainingRepository.insertTrainingWeek(week)
+
+            val weekId =
+                existing?.weekId ?: insertedId
 
             // Tell the field supervisor there is a week to confirm
-            TrainingLogic.acceptedSupervisorId(snapshot.supervisors, "field")?.let { fieldId ->
+            TrainingLogic.acceptedSupervisorId(
+                snapshot.supervisors,
+                "field"
+            )?.let { fieldId ->
+
                 runCatching {
                     NotificationEvents().publish(
                         recipientId = fieldId,
@@ -212,9 +426,12 @@ class TrainingViewModel(
                     )
                 }
             }
+
             null
+
         } catch (cancelled: CancellationException) {
             throw cancelled
+
         } catch (e: Exception) {
             "Could not save the week. Please try again."
         }
@@ -230,17 +447,25 @@ class TrainingViewModel(
         commentText: String,
         academicEmail: String = DEMO_ACADEMIC_EMAIL
     ): String? {
-        val input = TrainingLogic.validateGrade(gradeText, commentText)
+
+        val input =
+            TrainingLogic.validateGrade(gradeText, commentText)
+
         if (input.error != null) return input.error
 
-        val week = snapshot.weeks.firstOrNull { it.weekId == weekId } ?: return "This week was not submitted."
+        val week =
+            snapshot.weeks.firstOrNull { it.weekId == weekId }
+                ?: return "This week was not submitted."
 
         return try {
-            val academic = trainingRepository.getUserByEmail(academicEmail)
-                ?: return "Academic supervisor account not found."
+            val academic =
+                trainingRepository.getUserByEmail(academicEmail)
+                    ?: return "Academic supervisor account not found."
 
             // weekId is UNIQUE in weekly_evaluations, so reuse the old row when editing
-            val existing = trainingRepository.getEvaluationForWeek(weekId)
+            val existing =
+                trainingRepository.getEvaluationForWeek(weekId)
+
             trainingRepository.insertWeeklyEvaluation(
                 WeeklyEvaluationEntity(
                     evaluationId = existing?.evaluationId ?: 0L,
@@ -254,6 +479,7 @@ class TrainingViewModel(
 
             // Tell the student the week was graded
             snapshot.record?.studentId?.let { studentId ->
+
                 runCatching {
                     NotificationEvents().publish(
                         recipientId = studentId,
@@ -263,9 +489,12 @@ class TrainingViewModel(
                     )
                 }
             }
+
             null
+
         } catch (cancelled: CancellationException) {
             throw cancelled
+
         } catch (e: Exception) {
             "Could not save the evaluation. Please try again."
         }

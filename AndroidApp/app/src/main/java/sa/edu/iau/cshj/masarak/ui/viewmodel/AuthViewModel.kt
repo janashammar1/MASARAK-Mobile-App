@@ -19,8 +19,11 @@ class AuthViewModel(private val userRepository: UserRepository) : ViewModel() {
 
     fun login(email: String, passwordInput: String) {
         viewModelScope.launch {
+            _loginError.value = null
+
             try {
-                val user = userRepository.getUserByEmail(email)
+                val user = userRepository.getUserByEmail(email.trim())
+
                 if (user != null && PasswordHasher.verifyPassword(passwordInput, user.passwordHash, user.passwordSalt)) {
                     _currentUser.value = user
                     _loginError.value = null

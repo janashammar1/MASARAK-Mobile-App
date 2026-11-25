@@ -1,3 +1,4 @@
+
 package sa.edu.iau.cshj.masarak.data.repository
 
 import kotlinx.coroutines.flow.Flow
@@ -12,8 +13,16 @@ import sa.edu.iau.cshj.masarak.data.entity.TaskSubmissionEntity
 import sa.edu.iau.cshj.masarak.data.entity.UserEntity
 
 class TrainingRepository(private val trainingDao: TrainingDao) {
-    fun getPeopleForSupervisor(supervisorEmail: String): Flow<List<SupervisorPersonRow>> =
-        trainingDao.getPeopleForSupervisor(supervisorEmail)
+
+    fun getPeopleForSupervisor(
+        supervisorId: Long,
+        reviewStage: String
+    ): Flow<List<SupervisorPersonRow>> =
+        trainingDao.getPeopleForSupervisor(
+            supervisorId,
+            reviewStage
+        )
+
     fun getTrainingRecordsForStudent(studentId: Long): Flow<List<TrainingRecordEntity>> =
         trainingDao.getTrainingRecordsForStudent(studentId)
 
@@ -42,6 +51,18 @@ class TrainingRepository(private val trainingDao: TrainingDao) {
 
     suspend fun getUserByEmail(email: String): UserEntity? =
         trainingDao.getUserByEmail(email)
+
+    suspend fun getLinkRequest(
+        recordId: Long,
+        supervisorId: Long
+    ): SupervisorLinkEntity? =
+        trainingDao.getLinkRequest(recordId, supervisorId)
+
+    suspend fun getAcceptedFieldLink(
+        recordId: Long,
+        supervisorId: Long
+    ): SupervisorLinkEntity? =
+        trainingDao.getAcceptedFieldLink(recordId, supervisorId)
 
     fun observeUser(userId: Long): Flow<UserEntity?> =
         trainingDao.observeUser(userId)

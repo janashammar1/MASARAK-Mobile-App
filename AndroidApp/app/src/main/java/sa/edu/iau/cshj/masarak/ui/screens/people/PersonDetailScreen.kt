@@ -1,8 +1,7 @@
-
 package sa.edu.iau.cshj.masarak.ui.screens.people
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -31,12 +30,14 @@ import sa.edu.iau.cshj.masarak.data.entity.TaskEntity
 import sa.edu.iau.cshj.masarak.data.entity.TaskSubmissionEntity
 import sa.edu.iau.cshj.masarak.data.entity.TaskReviewEntity
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 @Composable
-fun PersonDetailScreen() = PersonDetailScreen(isAcademic = true)
+fun PersonDetailScreen() =
+    PersonDetailScreen(isAcademic = true)
 
 @Composable
 fun PersonDetailScreen(
@@ -44,18 +45,23 @@ fun PersonDetailScreen(
     attendance: Boolean = false,
     personName: String? = null,
     recordId: Long = 0L,
+    currentUserId: Long? = null,
     onBackClick: () -> Unit = {},
     onReviewClick: ((Long) -> Unit)? = null,
     onEvaluation: (() -> Unit)? = null,
-    onFieldReview: (() -> Unit)? = null
+    onFieldReview: ((Long) -> Unit)? = null,
+    onReportClick: ((String) -> Unit)? = null
 ) {
     val preview = LocalInspectionMode.current
+    val scope = rememberCoroutineScope()
 
     val trainingViewModel: TrainingViewModel? =
-        if (preview) null else viewModel(factory = MasarakViewModelFactory())
+        if (preview) null
+        else viewModel(factory = MasarakViewModelFactory())
 
     val taskViewModel: TaskViewModel? =
-        if (preview) null else viewModel(factory = MasarakViewModelFactory())
+        if (preview) null
+        else viewModel(factory = MasarakViewModelFactory())
 
     val trainingWeeks by (
             trainingViewModel?.trainingWeeks
@@ -85,10 +91,27 @@ fun PersonDetailScreen(
                 }
             ).collectAsState()
 
+    var loadingRecord by remember { mutableStateOf(false) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+
     LaunchedEffect(recordId) {
-        if (!preview && recordId != 0L) {
-            trainingViewModel?.loadTrainingWeeks(recordId)
-            taskViewModel?.loadTasks(recordId)
+        if (!preview) {
+            if (recordId <= 0L) {
+                loadError = "Invalid training record."
+            } else {
+                loadingRecord = true
+                loadError = null
+
+                try {
+                    trainingViewModel?.loadTrainingWeeks(recordId)
+                    taskViewModel?.loadTasks(recordId)
+                } catch (exception: Exception) {
+                    loadError = exception.message
+                        ?: "Unable to load training details."
+                }
+
+                loadingRecord = false
+            }
         }
     }
 
@@ -114,14 +137,32 @@ fun PersonDetailScreen(
         preview = preview,
         personName = personName,
         recordId = recordId,
+        currentUserId = currentUserId,
         trainingWeeks = trainingWeeks,
         tasks = tasks,
         submissions = submissions,
         reviews = reviews,
+        isLoading = loadingRecord,
+        error = loadError,
+        onConfirmAttendance = { week ->
+            if (
+                !isAcademic &&
+                currentUserId != null &&
+                currentUserId > 0L
+            ) {
+                scope.launch {
+                    trainingViewModel?.confirmAttendance(
+                        week,
+                        currentUserId
+                    )
+                }
+            }
+        },
         onBackClick = onBackClick,
         onReviewClick = onReviewClick,
         onEvaluation = onEvaluation,
-        onFieldReview = onFieldReview
+        onFieldReview = onFieldReview,
+        onReportClick = onReportClick
     )
 }
 
@@ -129,24 +170,7 @@ private data class PersonTask(
     val title: String,
     val date: String,
     val status: String,
-    val submissionId: Long? = null
-)
-
-// Preview data only
-private val academicPreviewTasks = listOf(
-    PersonTask("Build the login API", "6 h · Individual · 10 Sep", "Needs Review"),
-    PersonTask("Connect login to the app", "4 h · Team · 9 Sep", "Partially Relevant"),
-    PersonTask("Design the database", "8 h · Team · 8 Sep", "Relevant"),
-    PersonTask("Organise the shared drive", "3 h · Individual · 7 Sep", "Not Relevant"),
-    PersonTask("Update the team calendar", "2 h · Individual · 4 Sep", "Not Relevant")
-)
-
-private val fieldPreviewTasks = listOf(
-    PersonTask("Build the profile screen", "5 h · Individual · Today", "Needs Review"),
-    PersonTask("Design the settings screen", "3 h · Individual · Today", "Needs Review"),
-    PersonTask("Fix the sorting bug", "2 h · Individual · 10 Sep", "Returned for Updates"),
-    PersonTask("Write API tests", "4 h · Team · 11 Sep", "Waiting for Academic Review"),
-    PersonTask("Set up the test database", "6 h · Team · 8 Sep", "Relevant")
+    val submissionId: Long
 )
 
 @Composable
@@ -156,87 +180,141 @@ private fun PersonDetailLayout(
     preview: Boolean,
     personName: String? = null,
     recordId: Long = 0L,
+    currentUserId: Long? = null,
     trainingWeeks: List<TrainingWeekEntity> = emptyList(),
     tasks: List<TaskEntity> = emptyList(),
     submissions: Map<Long, List<TaskSubmissionEntity>> = emptyMap(),
     reviews: Map<Long, List<TaskReviewEntity>> = emptyMap(),
+    isLoading: Boolean = false,
+    error: String? = null,
+    onConfirmAttendance: (TrainingWeekEntity) -> Unit = {},
     onBackClick: () -> Unit = {},
     onReviewClick: ((Long) -> Unit)? = null,
     onEvaluation: (() -> Unit)? = null,
-    onFieldReview: (() -> Unit)? = null
+    onFieldReview: ((Long) -> Unit)? = null,
+    onReportClick: ((String) -> Unit)? = null
 ) {
     var showAttendance by rememberSaveable(attendance) {
         mutableStateOf(attendance)
     }
 
     val displayedTasks = if (preview) {
-        if (academic) academicPreviewTasks else fieldPreviewTasks
+        emptyList()
     } else {
-        tasks.flatMap { task ->
+        tasks.mapNotNull { task ->
 
-            val taskSubmissions = submissions[task.taskId].orEmpty()
+            val latestSubmission = submissions[task.taskId]
+                .orEmpty()
+                .maxWithOrNull(
+                    compareBy<TaskSubmissionEntity> { it.attemptNo }
+                        .thenBy { it.submittedAt }
+                        .thenBy { it.submissionId }
+                )
 
-            if (taskSubmissions.isEmpty()) {
-                emptyList()
-            } else {
-                taskSubmissions.map { submission ->
+            latestSubmission?.let { submission ->
 
-                    val latestReview =
-                        reviews[submission.submissionId]
-                            .orEmpty()
-                            .maxByOrNull { it.reviewedAt }
+                val latestReview = reviews[submission.submissionId]
+                    .orEmpty()
+                    .maxByOrNull { it.reviewedAt }
 
-                    val formattedDate = SimpleDateFormat(
-                        "dd MMM yyyy",
-                        Locale.getDefault()
-                    ).format(Date(submission.taskDate))
+                val formattedDate = SimpleDateFormat(
+                    "dd MMM yyyy",
+                    Locale.getDefault()
+                ).format(Date(submission.taskDate))
 
-                    PersonTask(
-                        title = submission.title,
-                        date = "${submission.durationMinutes} min · ${submission.taskType} · $formattedDate",
-                        status = latestReview?.decision ?: "Needs Review",
-                        submissionId = submission.submissionId
-                    )
-                }
+                PersonTask(
+                    title = submission.title,
+                    date = "${submission.durationMinutes} min · ${submission.taskType} · $formattedDate",
+                    status = latestReview?.decision ?: "Needs Review",
+                    submissionId = submission.submissionId
+                )
             }
         }
     }
 
-    PeoplePage(academic, preview, header = {
-        PeopleTitle(
-            personName ?: if (academic) "Sara Alqahtani" else "Jana Alharbi",
-            "Nakheel Tech · Week 3 · ${if (academic) 50 else 54} / 240 h",
-            onBackClick
-        )
+    val totalMinutes = trainingWeeks.sumOf { it.durationMinutes }
+    val totalHours = totalMinutes / 60
+    val latestWeek = trainingWeeks.maxOfOrNull { it.weekNo }
 
-        PersonTabs(academic, showAttendance, onEvaluation) {
-            showAttendance = it
+    val subtitle = if (preview) {
+        ""
+    } else {
+        buildString {
+            if (latestWeek != null) {
+                append("Week $latestWeek")
+            }
+            if (totalHours > 0) {
+                if (isNotEmpty()) append(" · ")
+                append("$totalHours h")
+            }
         }
-    }) {
+    }
+
+    PeoplePage(
+        academic,
+        preview,
+        header = {
+            PeopleTitle(
+                personName ?: "",
+                subtitle.ifBlank { null },
+                onBackClick
+            )
+
+            PersonTabs(
+                academic = academic,
+                attendance = showAttendance,
+                taskCount = displayedTasks.size,
+                attendanceCount = trainingWeeks.size,
+                onEvaluation = onEvaluation
+            ) {
+                showAttendance = it
+            }
+        }
+    ) {
         Column(
-            Modifier.fillMaxSize()
+            Modifier
+                .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(19.dp, 11.dp),
             verticalArrangement = Arrangement.spacedBy(11.dp)
         ) {
-            if (showAttendance) {
-                if (preview) {
-                    if (!academic) {
-                        AttendanceWeek(3, 5, 30, "week-3-report.pdf", false)
+            when {
+                preview -> {
+                    PeopleText(
+                        "No data available in preview.",
+                        14,
+                        PeopleMuted
+                    )
+                }
+
+                recordId <= 0L -> {
+                    PeopleText(
+                        "Invalid training record.",
+                        14,
+                        PeopleMuted
+                    )
+                }
+
+                isLoading -> {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = PeopleTeal)
                     }
+                }
 
-                    AttendanceWeek(
-                        2, 5,
-                        if (academic) 30 else 32,
-                        "week-2-report.pdf"
+                error != null -> {
+                    PeopleText(
+                        error,
+                        14,
+                        Color(0xFFB3261E)
                     )
+                }
 
-                    AttendanceWeek(
-                        1, 4,
-                        if (academic) 20 else 22,
-                        "week-1-report.pdf"
-                    )
-                } else {
+                showAttendance -> {
                     if (trainingWeeks.isEmpty()) {
                         PeopleText(
                             "No attendance records available.",
@@ -244,38 +322,45 @@ private fun PersonDetailLayout(
                             PeopleMuted
                         )
                     } else {
-                        trainingWeeks.sortedByDescending { it.weekNo }
+                        trainingWeeks
+                            .sortedByDescending { it.weekNo }
                             .forEach { week ->
-
                                 AttendanceWeek(
-                                    week = week.weekNo,
-                                    days = week.daysAttended,
-                                    minutes = week.durationMinutes,
-                                    reportName = week.reportFileName,
-                                    confirmed = week.confirmedBy != null
+                                    week = week,
+                                    academic = academic,
+                                    onConfirm = {
+                                        onConfirmAttendance(week)
+                                    },
+                                    onReportClick = onReportClick
                                 )
                             }
                     }
                 }
-            } else {
-                if (displayedTasks.isEmpty()) {
+
+                displayedTasks.isEmpty() -> {
                     PeopleText(
-                        if (preview) "No tasks available." else
-                            "No submitted tasks available.",
+                        "No submitted tasks available.",
                         14,
                         PeopleMuted
                     )
-                } else {
+                }
 
+                else -> {
                     displayedTasks.forEach { task ->
 
                         val taskClick: (() -> Unit)? =
-                            if (academic && task.submissionId != null) {
+                            if (academic) {
                                 {
-                                    onReviewClick?.invoke(task.submissionId)
+                                    onReviewClick?.invoke(
+                                        task.submissionId
+                                    )
                                 }
                             } else {
-                                onFieldReview
+                                {
+                                    onFieldReview?.invoke(
+                                        task.submissionId
+                                    )
+                                }
                             }
 
                         PersonTaskCard(
@@ -283,7 +368,6 @@ private fun PersonDetailLayout(
                             onClick = taskClick
                         )
                     }
-
                 }
             }
         }
@@ -294,16 +378,20 @@ private fun PersonDetailLayout(
 private fun PersonTabs(
     academic: Boolean,
     attendance: Boolean,
+    taskCount: Int,
+    attendanceCount: Int,
     onEvaluation: (() -> Unit)?,
     onTab: (Boolean) -> Unit
 ) {
-    val labels = if (academic)
+    val labels = if (academic) {
         listOf("Tasks", "Attendance", "Weekly\nEvaluation")
-    else
+    } else {
         listOf("Tasks", "Attendance")
+    }
 
     Row(
-        Modifier.fillMaxWidth()
+        Modifier
+            .fillMaxWidth()
             .height(49.dp)
             .padding(horizontal = 19.dp)
     ) {
@@ -312,13 +400,14 @@ private fun PersonTabs(
             val selected = index == if (attendance) 1 else 0
 
             val count = when (index) {
-                0 -> if (academic) "1" else "2"
-                1 -> if (academic) null else "1"
+                0 -> taskCount.toString()
+                1 -> attendanceCount.toString()
                 else -> null
             }
 
             Box(
-                Modifier.weight(1f)
+                Modifier
+                    .weight(1f)
                     .fillMaxHeight()
                     .then(
                         if (index < 2) {
@@ -327,7 +416,9 @@ private fun PersonTabs(
                             }
                         } else if (onEvaluation != null) {
                             Modifier.clickable(onClick = onEvaluation)
-                        } else Modifier
+                        } else {
+                            Modifier
+                        }
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -341,25 +432,33 @@ private fun PersonTabs(
                         fontSize = 14.sp,
                         lineHeight = 16.sp,
                         textAlign = TextAlign.Center,
-                        fontWeight = if (selected)
+                        fontWeight = if (selected) {
                             androidx.compose.ui.text.font.FontWeight.Bold
-                        else
+                        } else {
                             androidx.compose.ui.text.font.FontWeight.Medium
+                        }
                     )
 
                     if (count != null) {
                         Box(
-                            Modifier.background(PeopleMint, CircleShape)
+                            Modifier
+                                .background(PeopleMint, CircleShape)
                                 .padding(horizontal = 7.dp)
                         ) {
-                            PeopleText(count, 10, PeopleTeal, bold = true)
+                            PeopleText(
+                                count,
+                                10,
+                                PeopleTeal,
+                                bold = true
+                            )
                         }
                     }
                 }
 
                 if (selected) {
                     Box(
-                        Modifier.align(Alignment.BottomCenter)
+                        Modifier
+                            .align(Alignment.BottomCenter)
                             .fillMaxWidth(.9f)
                             .height(3.dp)
                             .background(
@@ -385,16 +484,20 @@ private fun PersonTaskCard(
 ) {
     PeopleCard {
         Row(
-            Modifier.fillMaxWidth()
+            Modifier
+                .fillMaxWidth()
                 .then(
-                    if (onClick != null)
+                    if (onClick != null) {
                         Modifier.clickable(onClick = onClick)
-                    else Modifier
+                    } else {
+                        Modifier
+                    }
                 )
                 .padding(14.dp),
             verticalAlignment = Alignment.Top
         ) {
             PeopleTile(Icons.Outlined.TaskAlt)
+
             Spacer(Modifier.width(12.dp))
 
             Column(
@@ -425,13 +528,18 @@ private fun PersonTaskCard(
                     else -> Icons.Outlined.Schedule
                 }
 
-                PersonChip(task.status, icon, background)
+                PersonChip(
+                    task.status,
+                    icon,
+                    background
+                )
             }
 
             Icon(
                 Icons.Outlined.ChevronRight,
                 null,
-                Modifier.align(Alignment.CenterVertically)
+                Modifier
+                    .align(Alignment.CenterVertically)
                     .size(19.dp),
                 tint = PeopleInk
             )
@@ -441,16 +549,22 @@ private fun PersonTaskCard(
 
 @Composable
 private fun AttendanceWeek(
-    week: Int,
-    days: Int,
-    minutes: Int,
-    reportName: String,
-    confirmed: Boolean = true
+    week: TrainingWeekEntity,
+    academic: Boolean,
+    onConfirm: () -> Unit,
+    onReportClick: ((String) -> Unit)?
 ) {
+    val minutes = week.durationMinutes
     val hours = minutes / 60.0
+    val confirmed = week.confirmedBy != null
 
     PeopleCard {
-        Row(Modifier.fillMaxWidth().padding(14.dp)) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             PeopleTile(
                 Icons.Outlined.EventAvailable,
                 PeopleMint,
@@ -462,31 +576,51 @@ private fun AttendanceWeek(
             Column(
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                PeopleText("Week $week", 16, bold = true)
+                PeopleText(
+                    "Week ${week.weekNo}",
+                    16,
+                    bold = true
+                )
 
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(15.dp)
                 ) {
                     AttendanceMetric(
                         Icons.Outlined.HowToReg,
-                        "$days days"
+                        "${week.daysAttended} days"
                     )
 
                     AttendanceMetric(
                         Icons.Outlined.Schedule,
-                        if (minutes % 60 == 0)
+                        if (minutes % 60 == 0) {
                             "${minutes / 60} h"
-                        else
-                            String.format("%.1f h", hours)
+                        } else {
+                            String.format(
+                                Locale.getDefault(),
+                                "%.1f h",
+                                hours
+                            )
+                        }
                     )
                 }
 
-                PersonChip(
-                    reportName,
-                    Icons.Outlined.Description,
-                    Color(0xFFF0EFEB),
-                    iconColor = PeopleTeal
-                )
+                if (week.reportFileName.isNotBlank()) {
+                    Row(
+                        Modifier
+                            .clickable {
+                                onReportClick?.invoke(week.reportFileName)
+                            }
+                            .padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        PersonChip(
+                            week.reportFileName,
+                            Icons.Outlined.Description,
+                            Color(0xFFF0EFEB),
+                            iconColor = PeopleTeal
+                        )
+                    }
+                }
 
                 if (confirmed) {
                     PersonChip(
@@ -494,12 +628,15 @@ private fun AttendanceWeek(
                         Icons.Outlined.Verified,
                         Color(0xFFCAEDC8)
                     )
-                } else {
+                } else if (!academic) {
                     Row(
-                        Modifier.background(
-                            PeopleNavy,
-                            RoundedCornerShape(13.dp)
-                        ).padding(15.dp, 12.dp),
+                        Modifier
+                            .background(
+                                PeopleNavy,
+                                RoundedCornerShape(13.dp)
+                            )
+                            .clickable(onClick = onConfirm)
+                            .padding(15.dp, 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
@@ -517,6 +654,12 @@ private fun AttendanceWeek(
                             bold = true
                         )
                     }
+                } else {
+                    PersonChip(
+                        "Waiting for field supervisor confirmation",
+                        Icons.Outlined.Schedule,
+                        Color(0xFFF0EFEB)
+                    )
                 }
             }
         }
@@ -551,10 +694,12 @@ internal fun PersonChip(
     iconColor: Color = PeopleInk
 ) {
     Row(
-        Modifier.background(
-            bg,
-            RoundedCornerShape(7.dp)
-        ).padding(8.dp, 5.dp),
+        Modifier
+            .background(
+                bg,
+                RoundedCornerShape(7.dp)
+            )
+            .padding(8.dp, 5.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(5.dp)
     ) {
@@ -573,26 +718,42 @@ internal fun PersonChip(
 @Composable
 private fun AcademicTasksPreview() =
     MaterialTheme {
-        PersonDetailLayout(true, false, true)
+        PersonDetailLayout(
+            academic = true,
+            attendance = false,
+            preview = true
+        )
     }
 
 @Preview(name = "Academic · Attendance", widthDp = 390, heightDp = 844)
 @Composable
 private fun AcademicAttendancePreview() =
     MaterialTheme {
-        PersonDetailLayout(true, true, true)
+        PersonDetailLayout(
+            academic = true,
+            attendance = true,
+            preview = true
+        )
     }
 
 @Preview(name = "Field · Tasks", widthDp = 390, heightDp = 844)
 @Composable
 private fun FieldTasksPreview() =
     MaterialTheme {
-        PersonDetailLayout(false, false, true)
+        PersonDetailLayout(
+            academic = false,
+            attendance = false,
+            preview = true
+        )
     }
 
 @Preview(name = "Field · Attendance", widthDp = 390, heightDp = 844)
 @Composable
 private fun FieldAttendancePreview() =
     MaterialTheme {
-        PersonDetailLayout(false, true, true)
+        PersonDetailLayout(
+            academic = false,
+            attendance = true,
+            preview = true
+        )
     }

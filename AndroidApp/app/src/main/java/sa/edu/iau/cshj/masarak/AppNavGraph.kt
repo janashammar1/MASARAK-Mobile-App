@@ -14,21 +14,20 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.dialog
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
-
-import sa.edu.iau.cshj.masarak.data.DatabaseProvider
 import sa.edu.iau.cshj.masarak.ui.components.AppBottomBar
 import sa.edu.iau.cshj.masarak.ui.components.BottomBarItem
 import sa.edu.iau.cshj.masarak.ui.components.LinkPersonSheet
@@ -52,14 +51,40 @@ import sa.edu.iau.cshj.masarak.ui.screens.tasks.ReviewTaskScreen
 import sa.edu.iau.cshj.masarak.ui.screens.training.AcademicWeeklyEvaluationScreen
 import sa.edu.iau.cshj.masarak.ui.screens.training.MyTrainingScreen
 import sa.edu.iau.cshj.masarak.ui.screens.training.WeeklyEvaluationScreen
-import androidx.navigation.NavType
-import androidx.navigation.navArgument
+import sa.edu.iau.cshj.masarak.ui.viewmodel.AuthViewModel
+import sa.edu.iau.cshj.masarak.ui.viewmodel.MasarakViewModelFactory
+
 @Composable
 fun AppNavGraph() {
 
     val nav = rememberNavController()
+
+    val authViewModel: AuthViewModel = viewModel(
+        factory = MasarakViewModelFactory()
+    )
+
+    val currentUser = authViewModel.currentUser.collectAsState().value
+    val loginError = authViewModel.loginError.collectAsState().value
+
     val selectedTask = remember { mutableStateOf(sampleTask) }
-    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(currentUser) {
+        val user = currentUser ?: return@LaunchedEffect
+
+        val route = when (user.role.trim().lowercase()) {
+            "student" -> "student_home"
+            "field supervisor", "field" -> "supervisor/field"
+            "academic supervisor", "academic" -> "supervisor/academic"
+            else -> return@LaunchedEffect
+        }
+
+        nav.navigate(route) {
+            popUpTo("login") {
+                inclusive = true
+            }
+            launchSingleTop = true
+        }
+    }
 
     fun home(role: String) =
         if (role == "student") "student_home"
@@ -116,8 +141,9 @@ fun AppNavGraph() {
 
         composable("login") {
             LoginScreen(
-                onSignIn = { _, _ ->
-                    nav.navigate("demo_roles")
+                errorMessage = loginError,
+                onSignIn = { email, password ->
+                    authViewModel.login(email, password)
                 }
             )
         }
@@ -184,6 +210,7 @@ fun AppNavGraph() {
 
             PeopleListScreen(
                 isAcademic = role == "academic",
+                supervisorId = currentUser?.userId,
 
                 onLinkClick = {
                     nav.navigate("link_person/$role")
@@ -193,6 +220,10 @@ fun AppNavGraph() {
                     nav.navigate(
                         "person/$role/${Uri.encode(name)}/$recordId"
                     )
+                },
+
+                onBottomBarItemSelected = {
+                    selectTab(role, it)
                 }
             )
         }
@@ -214,12 +245,12 @@ fun AppNavGraph() {
                 isAcademic = academic,
                 personName = personName,
                 recordId = recordId,
+                currentUserId = currentUser?.userId,
 
                 onBackClick = {
                     nav.popBackStack()
                 },
 
-                // Navigate using the selected submission ID
                 onReviewClick = { submissionId ->
                     nav.navigate("review_relevance/$submissionId")
                 },
@@ -230,7 +261,6 @@ fun AppNavGraph() {
                     }
                 } else null,
 
-                // Academic supervisor opens the weekly evaluation of this student's record
                 onEvaluation = if (academic && recordId != 0L) {
                     {
                         nav.navigate("academic_weekly_evaluation/$recordId")
@@ -244,6 +274,7 @@ fun AppNavGraph() {
             LinkPersonSheet(
                 isAcademic =
                     entry.arguments?.getString("role") == "academic",
+                currentUserId = currentUser?.userId,
 
                 onDismiss = {
                     nav.popBackStack()
@@ -283,6 +314,7 @@ fun AppNavGraph() {
             if (submissionId != null) {
                 ReviewRelevanceScreen(
                     submissionId = submissionId,
+                    reviewerId = currentUser?.userId,
                     onBackClick = {
                         nav.popBackStack()
                     }
@@ -520,17 +552,14 @@ fun AppNavGraph() {
                     nav.popBackStack()
                 },
 
-
                 onEditClick = {
                     val submissionId = selectedTask.value.submissionId
                     if (submissionId != null) {
                         nav.navigate("task_form?submissionId=$submissionId")
                     }
                 }
-
             )
         }
-
 
         composable(
             route = "task_form?submissionId={submissionId}",
@@ -550,7 +579,6 @@ fun AppNavGraph() {
                     ?.getLong("submissionId")
                     ?.takeIf { it > 0L }
             )
-
         }
     }
 }

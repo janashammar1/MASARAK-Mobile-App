@@ -1,3 +1,4 @@
+
 package sa.edu.iau.cshj.masarak.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
@@ -17,88 +18,127 @@ class TaskViewModel(
     private val taskRepository: TaskRepository
 ) : ViewModel() {
 
+    // Tasks
     private val _tasks = MutableStateFlow<List<TaskEntity>>(emptyList())
     val tasks: StateFlow<List<TaskEntity>> = _tasks.asStateFlow()
 
+    // Submissions grouped by task ID
     private val _submissions =
         MutableStateFlow<Map<Long, List<TaskSubmissionEntity>>>(emptyMap())
+
     val submissions: StateFlow<Map<Long, List<TaskSubmissionEntity>>> =
         _submissions.asStateFlow()
 
+    // Selected submission
     private val _selectedSubmission =
         MutableStateFlow<TaskSubmissionEntity?>(null)
+
     val selectedSubmission: StateFlow<TaskSubmissionEntity?> =
         _selectedSubmission.asStateFlow()
 
+    // Reviews grouped by submission ID
     private val _reviews =
         MutableStateFlow<Map<Long, List<TaskReviewEntity>>>(emptyMap())
+
     val reviews: StateFlow<Map<Long, List<TaskReviewEntity>>> =
         _reviews.asStateFlow()
 
+    // Attachments grouped by submission ID
     private val _attachments =
         MutableStateFlow<Map<Long, List<TaskAttachmentEntity>>>(emptyMap())
+
     val attachments: StateFlow<Map<Long, List<TaskAttachmentEntity>>> =
         _attachments.asStateFlow()
+
+    // Jobs
+    private var tasksJob: Job? = null
+    private var selectedSubmissionJob: Job? = null
 
     private val submissionJobs = mutableMapOf<Long, Job>()
     private val reviewJobs = mutableMapOf<Long, Job>()
     private val attachmentJobs = mutableMapOf<Long, Job>()
 
+    // Load tasks for a training record
     fun loadTasks(recordId: Long) {
-        viewModelScope.launch {
-            taskRepository.getTasksForRecord(recordId).collect {
-                _tasks.value = it
+        tasksJob?.cancel()
+
+        tasksJob = viewModelScope.launch {
+            taskRepository.getTasksForRecord(recordId).collect { taskList ->
+                _tasks.value = taskList
             }
         }
     }
 
+    // Load submissions for a specific task
     fun loadSubmissions(taskId: Long) {
         if (submissionJobs[taskId]?.isActive == true) return
 
         submissionJobs[taskId] = viewModelScope.launch {
-            taskRepository.getSubmissionsForTask(taskId).collect {
-                _submissions.value = _submissions.value + (taskId to it)
+            taskRepository.getSubmissionsForTask(taskId).collect { submissionList ->
+                _submissions.value =
+                    _submissions.value + (taskId to submissionList)
             }
         }
     }
 
+    // Load one submission by its ID
     fun loadSubmission(submissionId: Long) {
-        viewModelScope.launch {
+        selectedSubmissionJob?.cancel()
+
+        selectedSubmissionJob = viewModelScope.launch {
             _selectedSubmission.value = null
+
             _selectedSubmission.value =
                 taskRepository.getSubmissionById(submissionId)
         }
     }
 
+    // Load reviews for a submission
     fun loadReviews(submissionId: Long) {
         if (reviewJobs[submissionId]?.isActive == true) return
 
         reviewJobs[submissionId] = viewModelScope.launch {
-            taskRepository.getReviewsForSubmission(submissionId).collect {
-                _reviews.value = _reviews.value + (submissionId to it)
+            taskRepository.getReviewsForSubmission(submissionId).collect { reviewList ->
+                _reviews.value =
+                    _reviews.value + (submissionId to reviewList)
             }
         }
     }
 
+    // Load attachments for a submission
     fun loadAttachments(submissionId: Long) {
         if (attachmentJobs[submissionId]?.isActive == true) return
 
         attachmentJobs[submissionId] = viewModelScope.launch {
             taskRepository.getAttachmentsForSubmission(submissionId).collect {
-                _attachments.value = _attachments.value + (submissionId to it)
+                    attachmentList ->
+                _attachments.value =
+                    _attachments.value + (submissionId to attachmentList)
             }
         }
     }
 
-    suspend fun addTask(task: TaskEntity): Long =
-        taskRepository.insertTask(task)
+    // Insert a task
+    suspend fun addTask(task: TaskEntity): Long {
+        return taskRepository.insertTask(task)
+    }
 
-    suspend fun addSubmission(submission: TaskSubmissionEntity): Long =
-        taskRepository.insertSubmission(submission)
+    // Insert a submission
+    suspend fun addSubmission(submission: TaskSubmissionEntity): Long {
+        return taskRepository.insertSubmission(submission)
+    }
 
-    suspend fun addAttachment(attachment: TaskAttachmentEntity): Long =
-        taskRepository.insertAttachment(attachment)
+    // Insert an attachment
+    suspend fun addAttachment(attachment: TaskAttachmentEntity): Long {
+        return taskRepository.insertAttachment(attachment)
+    }
 
-    suspend fun addReview(review: TaskReviewEntity): Long =
-        taskRepository.insertReview(review)
+    // Insert a review
+    suspend fun addReview(review: TaskReviewEntity): Long {
+        return taskRepository.insertReview(review)
+    }
+
+    suspend fun saveAcademicReview(review: TaskReviewEntity): Long {
+        return taskRepository.saveAcademicReview(review)
+    }
 }

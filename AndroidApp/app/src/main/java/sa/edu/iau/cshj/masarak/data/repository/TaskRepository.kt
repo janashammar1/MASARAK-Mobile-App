@@ -1,21 +1,26 @@
+
 package sa.edu.iau.cshj.masarak.data.repository
 
+import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import sa.edu.iau.cshj.masarak.data.DatabaseProvider
 import sa.edu.iau.cshj.masarak.data.dao.TaskDao
 import sa.edu.iau.cshj.masarak.data.entity.TaskAttachmentEntity
 import sa.edu.iau.cshj.masarak.data.entity.TaskEntity
 import sa.edu.iau.cshj.masarak.data.entity.TaskReviewEntity
 import sa.edu.iau.cshj.masarak.data.entity.TaskSubmissionEntity
-import androidx.room.withTransaction
-import sa.edu.iau.cshj.masarak.data.DatabaseProvider
-import kotlinx.coroutines.flow.first
-class TaskRepository(private val taskDao: TaskDao) {
+
+class TaskRepository(
+    private val taskDao: TaskDao
+) {
 
     suspend fun saveNewTask(
         recordId: Long,
         submission: TaskSubmissionEntity,
         attachment: TaskAttachmentEntity? = null
     ): Long = DatabaseProvider.db.withTransaction {
+
         val taskId = taskDao.insertTask(
             TaskEntity(recordId = recordId)
         )
@@ -86,33 +91,107 @@ class TaskRepository(private val taskDao: TaskDao) {
         newSubmissionId
     }
 
+    // Tasks
+
     fun getTasksForRecord(recordId: Long): Flow<List<TaskEntity>> =
         taskDao.getTasksForRecord(recordId)
 
     suspend fun insertTask(task: TaskEntity): Long =
         taskDao.insertTask(task)
 
-    fun getSubmissionsForTask(taskId: Long): Flow<List<TaskSubmissionEntity>> =
+
+    // Submissions
+
+    fun getSubmissionsForTask(
+        taskId: Long
+    ): Flow<List<TaskSubmissionEntity>> =
         taskDao.getSubmissionsForTask(taskId)
 
-    suspend fun insertSubmission(submission: TaskSubmissionEntity): Long =
-        taskDao.insertSubmission(submission)
+    suspend fun insertSubmission(
+        submission: TaskSubmissionEntity
+    ): Long = taskDao.insertSubmission(submission)
 
-    suspend fun getSubmissionById(submissionId: Long): TaskSubmissionEntity? =
+    suspend fun getSubmissionById(
+        submissionId: Long
+    ): TaskSubmissionEntity? =
         taskDao.getSubmissionById(submissionId)
 
-    fun getAttachmentsForSubmission(submissionId: Long): Flow<List<TaskAttachmentEntity>> =
+
+    // Attachments
+
+    fun getAttachmentsForSubmission(
+        submissionId: Long
+    ): Flow<List<TaskAttachmentEntity>> =
         taskDao.getAttachmentsForSubmission(submissionId)
 
-    suspend fun insertAttachment(attachment: TaskAttachmentEntity): Long =
-        taskDao.insertAttachment(attachment)
+    suspend fun insertAttachment(
+        attachment: TaskAttachmentEntity
+    ): Long = taskDao.insertAttachment(attachment)
 
     suspend fun deleteAttachmentById(attachmentId: Long) =
         taskDao.deleteAttachmentById(attachmentId)
 
-    fun getReviewsForSubmission(submissionId: Long): Flow<List<TaskReviewEntity>> =
+
+    // Reviews
+
+    fun getReviewsForSubmission(
+        submissionId: Long
+    ): Flow<List<TaskReviewEntity>> =
         taskDao.getReviewsForSubmission(submissionId)
 
-    suspend fun insertReview(review: TaskReviewEntity): Long =
-        taskDao.insertReview(review)
+    // General review save path.
+    suspend fun insertReview(
+        review: TaskReviewEntity
+    ): Long = DatabaseProvider.db.withTransaction {
+        upsertReview(review)
+    }
+
+    // Academic reviews require an accepted academic supervisor.
+    suspend fun saveAcademicReview(
+        review: TaskReviewEntity
+    ): Long = DatabaseProvider.db.withTransaction {
+
+        if (!review.reviewStage.equals("Academic", ignoreCase = true)) {
+            throw IllegalArgumentException(
+                "Invalid academic review stage."
+            )
+        }
+
+        val isAuthorized =
+            taskDao.isAcceptedAcademicSupervisorForSubmission(
+                submissionId = review.submissionId,
+                reviewerId = review.reviewerId
+            )
+
+        if (!isAuthorized) {
+            throw SecurityException(
+                "You are not authorized to review this submission."
+            )
+        }
+
+        upsertReview(review)
+    }
+
+    // Insert a new review or update the existing one.
+    private suspend fun upsertReview(
+        review: TaskReviewEntity
+    ): Long {
+
+        val existingReview = taskDao.getReviewByReviewerAndStage(
+            submissionId = review.submissionId,
+            reviewerId = review.reviewerId,
+            reviewStage = review.reviewStage
+        )
+
+        return if (existingReview != null) {
+            taskDao.updateReview(
+                review.copy(
+                    reviewId = existingReview.reviewId
+                )
+            )
+            existingReview.reviewId
+        } else {
+            taskDao.insertReview(review)
+        }
+    }
 }
