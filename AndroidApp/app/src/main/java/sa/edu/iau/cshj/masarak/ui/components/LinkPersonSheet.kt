@@ -1,4 +1,3 @@
-
 package sa.edu.iau.cshj.masarak.ui.components
 
 import androidx.compose.foundation.background
@@ -13,6 +12,7 @@ import androidx.compose.material.icons.outlined.MailOutline
 import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -26,7 +26,7 @@ import kotlinx.coroutines.launch
 import sa.edu.iau.cshj.masarak.data.DatabaseProvider
 import sa.edu.iau.cshj.masarak.data.entity.SupervisorLinkEntity
 import sa.edu.iau.cshj.masarak.ui.screens.people.*
-import androidx.compose.runtime.saveable.rememberSaveable
+
 @Composable
 fun LinkPersonSheet() {
     LinkPersonSheet(
@@ -66,10 +66,10 @@ private fun LinkPersonLayout(
 
     Box(Modifier.fillMaxSize()) {
 
-        // Existing screen remains behind the sheet.
-        PeopleListLayout(
-            academic = academic,
-            preview = preview
+        // Load the background list for the current supervisor.
+        PeopleListScreen(
+            isAcademic = academic,
+            supervisorId = currentUserId
         )
 
         Box(
@@ -331,10 +331,12 @@ private fun LinkPersonLayout(
 
                             } catch (cancelled: CancellationException) {
                                 throw cancelled
+
                             } catch (exception: Exception) {
                                 message =
                                     "Something went wrong. Please try again."
                                 isError = true
+
                             } finally {
                                 isLoading = false
                             }

@@ -1,17 +1,15 @@
-
 package sa.edu.iau.cshj.masarak
 
 import android.app.Application
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import sa.edu.iau.cshj.masarak.data.DatabaseProvider
-import sa.edu.iau.cshj.masarak.data.entity.UserEntity
-import sa.edu.iau.cshj.masarak.data.util.PasswordHasher
-import sa.edu.iau.cshj.masarak.data.entity.TrainingRecordEntity
-import sa.edu.iau.cshj.masarak.data.entity.SupervisorLinkEntity
 import sa.edu.iau.cshj.masarak.data.entity.TaskEntity
 import sa.edu.iau.cshj.masarak.data.entity.TaskSubmissionEntity
+import sa.edu.iau.cshj.masarak.data.entity.TrainingRecordEntity
+import sa.edu.iau.cshj.masarak.data.entity.UserEntity
+import sa.edu.iau.cshj.masarak.data.util.PasswordHasher
 
 class MasarakApplication : Application() {
 
@@ -19,11 +17,15 @@ class MasarakApplication : Application() {
         super.onCreate()
         DatabaseProvider.initialize(this)
 
-        // Create demo accounts before login queries
         runBlocking(Dispatchers.IO) {
             try {
-                val userDao = DatabaseProvider.db.userDao()
-                val demoHash = PasswordHasher.hashPassword("password123")
+                val db = DatabaseProvider.db
+                val userDao = db.userDao()
+                val trainingDao = db.trainingDao()
+                val taskDao = db.taskDao()
+
+                val demoHash =
+                    PasswordHasher.hashPassword("password123")
 
                 val demoUsers = listOf(
                     UserEntity(
@@ -31,6 +33,22 @@ class MasarakApplication : Application() {
                         passwordHash = demoHash.hash,
                         passwordSalt = demoHash.salt,
                         fullName = "Student Demo",
+                        role = "Student",
+                        workOrganization = "IAU University"
+                    ),
+                    UserEntity(
+                        email = "student2@iau.edu.sa",
+                        passwordHash = demoHash.hash,
+                        passwordSalt = demoHash.salt,
+                        fullName = "Second Student Demo",
+                        role = "Student",
+                        workOrganization = "IAU University"
+                    ),
+                    UserEntity(
+                        email = "student3@iau.edu.sa",
+                        passwordHash = demoHash.hash,
+                        passwordSalt = demoHash.salt,
+                        fullName = "Student Without Training",
                         role = "Student",
                         workOrganization = "IAU University"
                     ),
@@ -43,6 +61,14 @@ class MasarakApplication : Application() {
                         workOrganization = "Field Partner Co."
                     ),
                     UserEntity(
+                        email = "supervisor.field2@iau.edu.sa",
+                        passwordHash = demoHash.hash,
+                        passwordSalt = demoHash.salt,
+                        fullName = "Second Field Supervisor Demo",
+                        role = "Field Supervisor",
+                        workOrganization = "Second Field Partner Co."
+                    ),
+                    UserEntity(
                         email = "supervisor.academic@iau.edu.sa",
                         passwordHash = demoHash.hash,
                         passwordSalt = demoHash.salt,
@@ -52,23 +78,25 @@ class MasarakApplication : Application() {
                     )
                 )
 
+                // Create missing accounts without overwriting existing ones.
                 for (user in demoUsers) {
                     if (userDao.getUserByEmail(user.email) == null) {
                         userDao.insertUser(user)
                     }
                 }
 
-                // Create a demo training record if it does not exist
-                val student = userDao.getUserByEmail("student@iau.edu.sa")
-                val academicSupervisor = userDao.getUserByEmail(
-                    "supervisor.academic@iau.edu.sa"
+                // Only the first two students receive training records.
+                // student3 intentionally has no training record.
+                val studentsWithTraining = listOf(
+                    "student@iau.edu.sa",
+                    "student2@iau.edu.sa"
                 )
 
-                if (student != null) {
-                    val trainingDao = DatabaseProvider.db.trainingDao()
-                    val taskDao = DatabaseProvider.db.taskDao()
+                for (email in studentsWithTraining) {
+                    val student =
+                        userDao.getUserByEmail(email) ?: continue
 
-                    var records = trainingDao
+                    val records = trainingDao
                         .getTrainingRecordsForStudent(student.userId)
                         .first()
 
@@ -81,41 +109,22 @@ class MasarakApplication : Application() {
                                 targetMinutes = 240
                             )
                         )
-
-                        records = trainingDao
-                            .getTrainingRecordsForStudent(student.userId)
-                            .first()
                     }
+                }
+
+                // Keep the existing demo task for the first student.
+                val student = userDao.getUserByEmail(
+                    "student@iau.edu.sa"
+                )
+
+                if (student != null) {
+                    val records = trainingDao
+                        .getTrainingRecordsForStudent(student.userId)
+                        .first()
 
                     val trainingRecord = records.firstOrNull()
 
                     if (trainingRecord != null) {
-
-                        // Link the student to the academic supervisor
-                        if (academicSupervisor != null) {
-                            val existingLink = trainingDao.getLinkRequest(
-                                recordId = trainingRecord.recordId,
-                                supervisorId = academicSupervisor.userId
-                            )
-
-                            if (existingLink == null) {
-                                trainingDao.insertSupervisorLink(
-                                    SupervisorLinkEntity(
-                                        recordId = trainingRecord.recordId,
-                                        supervisorId = academicSupervisor.userId,
-                                        supervisorRole = "Academic",
-                                        status = "accepted",
-                                        requestedAt = System.currentTimeMillis()
-                                    )
-                                )
-                            } else if (existingLink.status != "accepted") {
-                                trainingDao.insertSupervisorLink(
-                                    existingLink.copy(status = "accepted")
-                                )
-                            }
-                        }
-
-                        // Create the demo task submission if it does not exist
                         val tasks = taskDao
                             .getTasksForRecord(trainingRecord.recordId)
                             .first()
@@ -127,9 +136,11 @@ class MasarakApplication : Application() {
                                 .getSubmissionsForTask(task.taskId)
                                 .first()
 
-                            if (submissions.any {
+                            if (
+                                submissions.any {
                                     it.title == "Build the login API"
-                                }) {
+                                }
+                            ) {
                                 submissionExists = true
                                 break
                             }
@@ -158,6 +169,8 @@ class MasarakApplication : Application() {
                         }
                     }
                 }
+
+                // Supervisor links are never accepted automatically.
 
             } catch (e: Exception) {
                 e.printStackTrace()

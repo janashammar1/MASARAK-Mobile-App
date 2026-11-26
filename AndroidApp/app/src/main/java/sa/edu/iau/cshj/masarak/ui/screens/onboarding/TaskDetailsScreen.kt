@@ -59,7 +59,8 @@ data class TaskDetails(
     val challenges: String = "",
 
     val evidence: List<String> = emptyList(),
-    val submissionId: Long? = null
+    val submissionId: Long? = null,
+    val reviewStatusLabel: String = "Waiting for Field Review"
 )
 
 internal val sampleTask = TaskDetails(
@@ -332,7 +333,7 @@ private fun ReviewSection(
             ReviewCard(
                 color = Color(0xFFFFD98A),
                 icon = Icons.Default.Assignment,
-                title = "Returned for Updates · ${task.reviewer}",
+                title = "Returned for Updates",
                 message = task.reviewComment
             )
 
@@ -369,8 +370,12 @@ private fun ReviewSection(
             ReviewCard(
                 color = Color(0xFFE5E3EF),
                 icon = Icons.Default.Schedule,
-                title = "Waiting for Academic Review",
-                message = "Eng. Khalid approved it. Dr. Huda will review it next."
+                title = task.reviewStatusLabel,
+                message = if (task.reviewStatusLabel == "Waiting for Academic Review") {
+                    "Approved by the field supervisor. Awaiting academic review."
+                } else {
+                    "Awaiting review by the field supervisor."
+                }
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -379,7 +384,7 @@ private fun ReviewSection(
                 ReviewCard(
                     color = Color(0xFFFFE4A6),
                     icon = Icons.Default.Badge,
-                    title = "Eng. Khalid · Field Supervisor",
+                    title = "Field Supervisor",
                     message = task.supervisorComment,
                     time = task.supervisorTime
                 )
@@ -390,7 +395,7 @@ private fun ReviewSection(
             ReviewCard(
                 color = Color(0xFFFFD98A),
                 icon = Icons.Default.Contrast,
-                title = "Partially Relevant · Dr. Huda",
+                title = "Partially Relevant",
                 message = task.reviewComment
             )
 
@@ -400,7 +405,7 @@ private fun ReviewSection(
                 ReviewCard(
                     color = Color(0xFFFFE4A6),
                     icon = Icons.Default.Badge,
-                    title = "Eng. Khalid · Field Supervisor",
+                    title = "Field Supervisor",
                     message = task.supervisorComment,
                     time = task.supervisorTime
                 )
@@ -411,7 +416,7 @@ private fun ReviewSection(
             ReviewCard(
                 color = Color(0xFFFFDAD6),
                 icon = Icons.Default.Cancel,
-                title = "Not Relevant · Dr. Huda",
+                title = "Not Relevant",
                 message = task.reviewComment
             )
 
@@ -421,7 +426,7 @@ private fun ReviewSection(
                 ReviewCard(
                     color = Color(0xFFFFE4A6),
                     icon = Icons.Default.Badge,
-                    title = "Eng. Khalid · Field Supervisor",
+                    title = "Field Supervisor",
                     message = task.supervisorComment,
                     time = task.supervisorTime
                 )
@@ -432,7 +437,7 @@ private fun ReviewSection(
             ReviewCard(
                 color = Color(0xFFFFDAD6),
                 icon = Icons.Default.Cancel,
-                title = "Incomplete · Eng. Khalid",
+                title = "Incomplete",
                 message = task.reviewComment
             )
 
@@ -537,3 +542,6 @@ private fun TaskDetailsPreview() {
         }
     }
 }
+
+
+

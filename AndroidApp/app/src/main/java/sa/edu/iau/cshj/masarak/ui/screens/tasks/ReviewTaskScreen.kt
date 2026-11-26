@@ -22,9 +22,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import sa.edu.iau.cshj.masarak.data.entity.TaskSubmissionEntity
 import sa.edu.iau.cshj.masarak.ui.components.AppBottomBar
 import sa.edu.iau.cshj.masarak.ui.components.BottomBarItem
 import sa.edu.iau.cshj.masarak.ui.components.MarkIncompleteDialog
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 private val ReviewNavy = Color(0xFF0C0D45)
 private val ReviewTeal = Color(0xFF00696E)
@@ -57,10 +61,21 @@ fun ReviewTaskScreen(
     onIncomplete: () -> Unit = {},
     onBack: () -> Unit = {},
     chatUnreadCount: Int,
+    submission: TaskSubmissionEntity? = null,
+    studentName: String = "Jana Alharbi",
+    evidenceName: String = "profile.png",
+    initialFeedback: String =
+        "Clean layout. Please add the empty state next time.",
+    saving: Boolean = false,
+    errorMessage: String? = null,
+    onSaveReview: ((String, String) -> Unit)? = null,
     onBottomBarItemSelected: (BottomBarItem) -> Unit = {}
 ) {
-    var feedback by remember {
-        mutableStateOf("Clean layout. Please add the empty state next time.")
+    var feedback by remember(
+        submission?.submissionId,
+        initialFeedback
+    ) {
+        mutableStateOf(initialFeedback)
     }
 
     var showIncompleteDialog by remember {
@@ -85,7 +100,12 @@ fun ReviewTaskScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 12.dp),
+                .padding(
+                    start = 20.dp,
+                    end = 20.dp,
+                    top = 20.dp,
+                    bottom = 12.dp
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
@@ -118,7 +138,6 @@ fun ReviewTaskScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 16.dp)
         ) {
-            // Task details card
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -135,7 +154,8 @@ fun ReviewTaskScreen(
                     modifier = Modifier.padding(14.dp)
                 ) {
                     Text(
-                        text = "Build the profile screen",
+                        text = submission?.title
+                            ?: "Build the profile screen",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF202020)
@@ -156,7 +176,11 @@ fun ReviewTaskScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "JA",
+                                text = studentName.trim()
+                                    .split(Regex("\\s+"))
+                                    .take(2)
+                                    .mapNotNull { it.firstOrNull() }
+                                    .joinToString(""),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = ReviewNavy
@@ -166,7 +190,7 @@ fun ReviewTaskScreen(
                         Spacer(modifier = Modifier.width(10.dp))
 
                         Text(
-                            text = "Jana Alharbi",
+                            text = studentName,
                             fontSize = 14.sp,
                             color = Color(0xFF333333)
                         )
@@ -176,11 +200,13 @@ fun ReviewTaskScreen(
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        horizontalArrangement =
+                            Arrangement.spacedBy(14.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            horizontalArrangement =
+                                Arrangement.spacedBy(5.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.CalendarToday,
@@ -190,7 +216,12 @@ fun ReviewTaskScreen(
                             )
 
                             Text(
-                                text = "14 Sep",
+                                text = submission?.let {
+                                    SimpleDateFormat(
+                                        "dd MMM",
+                                        Locale.ENGLISH
+                                    ).format(Date(it.taskDate))
+                                } ?: "14 Sep",
                                 fontSize = 14.sp,
                                 color = Color(0xFF333333)
                             )
@@ -198,7 +229,8 @@ fun ReviewTaskScreen(
 
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            horizontalArrangement =
+                                Arrangement.spacedBy(5.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.AccessTime,
@@ -208,7 +240,9 @@ fun ReviewTaskScreen(
                             )
 
                             Text(
-                                text = "5h",
+                                text = submission?.let {
+                                    "${it.durationMinutes / 60f} h"
+                                } ?: "5h",
                                 fontSize = 14.sp,
                                 color = Color(0xFF333333)
                             )
@@ -216,7 +250,8 @@ fun ReviewTaskScreen(
 
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            horizontalArrangement =
+                                Arrangement.spacedBy(5.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.PersonOutline,
@@ -226,7 +261,8 @@ fun ReviewTaskScreen(
                             )
 
                             Text(
-                                text = "Individual",
+                                text = submission?.taskType
+                                    ?: "Individual",
                                 fontSize = 14.sp,
                                 color = Color(0xFF333333)
                             )
@@ -248,7 +284,8 @@ fun ReviewTaskScreen(
                     Spacer(modifier = Modifier.height(6.dp))
 
                     Text(
-                        text = "Built the profile screen with the photo, name and edit button.",
+                        text = submission?.description
+                            ?: "Built the profile screen with the photo, name and edit button.",
                         fontSize = 16.sp,
                         color = Color(0xFF252536),
                         lineHeight = 22.sp
@@ -281,7 +318,7 @@ fun ReviewTaskScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Image,
-                                contentDescription = "Image file",
+                                contentDescription = "Attachment",
                                 tint = ReviewTeal,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -289,7 +326,9 @@ fun ReviewTaskScreen(
                             Spacer(modifier = Modifier.width(8.dp))
 
                             Text(
-                                text = "profile.png",
+                                text = evidenceName.ifBlank {
+                                    "No attachment"
+                                },
                                 fontSize = 14.sp,
                                 color = Color(0xFF333333)
                             )
@@ -354,11 +393,19 @@ fun ReviewTaskScreen(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
-                    text = "Jana sees this with your decision.",
+                    text = "$studentName sees this with your decision.",
                     fontSize = 13.sp,
                     color = Color.Gray
                 )
             }
+        }
+
+        if (errorMessage != null) {
+            Text(
+                text = errorMessage,
+                color = ReviewRed,
+                modifier = Modifier.padding(horizontal = 20.dp)
+            )
         }
 
         // Fixed decision buttons
@@ -374,7 +421,14 @@ fun ReviewTaskScreen(
                 )
         ) {
             Button(
-                onClick = onApprove,
+                onClick = {
+                    if (onSaveReview != null) {
+                        onSaveReview("Approved", feedback)
+                    } else {
+                        onApprove()
+                    }
+                },
+                enabled = !saving,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
@@ -398,7 +452,14 @@ fun ReviewTaskScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 OutlinedButton(
-                    onClick = onReturn,
+                    onClick = {
+                        if (onSaveReview != null) {
+                            onSaveReview("Returned", feedback)
+                        } else {
+                            onReturn()
+                        }
+                    },
+                    enabled = !saving,
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp),
@@ -418,6 +479,7 @@ fun ReviewTaskScreen(
                     onClick = {
                         showIncompleteDialog = true
                     },
+                    enabled = !saving,
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp),
@@ -451,7 +513,6 @@ fun ReviewTaskScreen(
         }
     }
 
-    // Incomplete confirmation dialog
     if (showIncompleteDialog) {
         MarkIncompleteDialog(
             onDismiss = {
@@ -459,13 +520,21 @@ fun ReviewTaskScreen(
             },
             onConfirm = {
                 showIncompleteDialog = false
-                onIncomplete()
+
+                if (onSaveReview != null) {
+                    onSaveReview("Incomplete", feedback)
+                } else {
+                    onIncomplete()
+                }
             }
         )
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true)
+@Preview(
+    showBackground = true,
+    showSystemUi = true
+)
 @Composable
 fun ReviewTaskScreenPreview() {
     ReviewTaskScreen(chatUnreadCount = 1)

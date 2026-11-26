@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -84,13 +85,22 @@ fun ChatScreen(
         )
     }
 
-    Column(modifier = Modifier.fillMaxSize().then(background).statusBarsPadding()) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .then(background)
+            .statusBarsPadding()
+    ) {
         Text(
             text = "Chat",
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             color = Navy,
-            modifier = Modifier.padding(start = 18.dp, top = 20.dp, bottom = 28.dp)
+            modifier = Modifier.padding(
+                start = 18.dp,
+                top = 20.dp,
+                bottom = 28.dp
+            )
         )
 
         Column(
@@ -101,8 +111,19 @@ fun ChatScreen(
                     BorderStroke(1.dp, Color(0xFFE1E1E1)),
                     RoundedCornerShape(16.dp)
                 )
-                .background(Color.White, RoundedCornerShape(16.dp))
+                .background(
+                    Color.White,
+                    RoundedCornerShape(16.dp)
+                )
         ) {
+            if (conversations.isEmpty()) {
+                Text(
+                    text = "No linked contacts yet.",
+                    modifier = Modifier.padding(16.dp),
+                    color = Color.Gray
+                )
+            }
+
             conversations.forEachIndexed { index, conversation ->
                 ConversationItem(conversation) {
                     onConversationClick(conversation.conversationId)
@@ -122,12 +143,20 @@ fun ChatScreen(
             fontSize = 10.sp,
             color = Color(0xFF55545A),
             lineHeight = 14.sp,
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
+            modifier = Modifier.padding(
+                horizontal = 18.dp,
+                vertical = 10.dp
+            )
         )
 
         Spacer(modifier = Modifier.weight(1f))
 
-        Box(Modifier.fillMaxWidth().background(Navy).navigationBarsPadding()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Navy)
+                .navigationBarsPadding()
+        ) {
             AppBottomBar(
                 selectedItem = BottomBarItem.Chat,
                 thirdTabLabel = thirdTabLabel,
@@ -147,7 +176,10 @@ private fun ConversationItem(
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .defaultMinSize(minHeight = 48.dp)
-            .padding(horizontal = 12.dp, vertical = 5.dp),
+            .padding(
+                horizontal = 12.dp,
+                vertical = 5.dp
+            ),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(modifier = Modifier.size(38.dp)) {
@@ -156,8 +188,12 @@ private fun ConversationItem(
                     .size(34.dp)
                     .background(
                         color = when {
-                            conversation.isAcademic -> Color(0xFFE8E8F5)
-                            conversation.isFieldSupervisor -> Color(0xFFFFF0CC)
+                            conversation.isAcademic ->
+                                Color(0xFFE8E8F5)
+
+                            conversation.isFieldSupervisor ->
+                                Color(0xFFFFF0CC)
+
                             else -> Color(0xFFD9F2EF)
                         },
                         shape = CircleShape
@@ -169,8 +205,12 @@ private fun ConversationItem(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = when {
-                        conversation.isAcademic -> AcademicInitialsColor
-                        conversation.isFieldSupervisor -> Color(0xFF80621F)
+                        conversation.isAcademic ->
+                            AcademicInitialsColor
+
+                        conversation.isFieldSupervisor ->
+                            Color(0xFF80621F)
+
                         else -> StudentInitialsColor
                     }
                 )
@@ -182,19 +222,29 @@ private fun ConversationItem(
                     .align(Alignment.BottomEnd),
                 shape = CircleShape,
                 color = Color.White,
-                border = BorderStroke(0.5.dp, Color(0xFFE7E7E7))
+                border = BorderStroke(
+                    0.5.dp,
+                    Color(0xFFE7E7E7)
+                )
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = when {
-                            conversation.isAcademic -> Icons.Outlined.AccountBalance
-                            conversation.isFieldSupervisor -> Icons.Outlined.WorkOutline
+                            conversation.isAcademic ->
+                                Icons.Outlined.AccountBalance
+
+                            conversation.isFieldSupervisor ->
+                                Icons.Outlined.WorkOutline
+
                             else -> Icons.Outlined.School
                         },
                         contentDescription = null,
                         tint = when {
                             conversation.isAcademic -> Navy
-                            conversation.isFieldSupervisor -> Color(0xFF80621F)
+
+                            conversation.isFieldSupervisor ->
+                                Color(0xFF80621F)
+
                             else -> StudentTeal
                         },
                         modifier = Modifier.size(9.dp)
@@ -225,8 +275,12 @@ private fun ConversationItem(
                     withStyle(
                         SpanStyle(
                             color = when {
-                                conversation.isAcademic -> Color(0xFF64648A)
-                                conversation.isFieldSupervisor -> Color(0xFF9A7624)
+                                conversation.isAcademic ->
+                                    Color(0xFF64648A)
+
+                                conversation.isFieldSupervisor ->
+                                    Color(0xFF9A7624)
+
                                 else -> StudentTeal
                             },
                             fontWeight = FontWeight.Medium
@@ -234,7 +288,10 @@ private fun ConversationItem(
                     ) {
                         append("${conversation.role} · ")
                     }
-                    withStyle(SpanStyle(color = Color(0xFF5E5D63))) {
+
+                    withStyle(
+                        SpanStyle(color = Color(0xFF5E5D63))
+                    ) {
                         append(conversation.lastMessage)
                     }
                 },
@@ -261,16 +318,30 @@ private fun ConversationItem(
 
             if (conversation.unreadCount > 0) {
                 Spacer(modifier = Modifier.height(4.dp))
+
                 Box(
                     modifier = Modifier
-                        .size(14.dp)
-                        .background(Color(0xFFC62828), CircleShape),
+                        .size(18.dp)
+                        .background(
+                            Color(0xFFC62828),
+                            CircleShape
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = conversation.unreadCount.toString(),
+                        text = if (conversation.unreadCount > 99) {
+                            "99+"
+                        } else {
+                            conversation.unreadCount.toString()
+                        },
                         color = Color.White,
-                        fontSize = 8.sp,
+                        fontSize = 9.sp,
+                        lineHeight = 10.sp,
+                        style = LocalTextStyle.current.copy(
+                            platformStyle = PlatformTextStyle(
+                                includeFontPadding = false
+                            )
+                        ),
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -288,7 +359,12 @@ private fun ConversationItem(
     }
 }
 
-@Preview(name = "Student - Chat", showBackground = true, widthDp = 360, heightDp = 800)
+@Preview(
+    name = "Student - Chat",
+    showBackground = true,
+    widthDp = 360,
+    heightDp = 800
+)
 @Composable
 fun ChatScreenStudentPreview() {
     ChatScreen(
@@ -317,7 +393,12 @@ fun ChatScreenStudentPreview() {
     )
 }
 
-@Preview(name = "Academic Supervisor - Chat", showBackground = true, widthDp = 360, heightDp = 800)
+@Preview(
+    name = "Academic Supervisor - Chat",
+    showBackground = true,
+    widthDp = 360,
+    heightDp = 800
+)
 @Composable
 fun ChatScreenAcademicSupervisorPreview() {
     ChatScreen(
@@ -353,7 +434,12 @@ fun ChatScreenAcademicSupervisorPreview() {
     )
 }
 
-@Preview(name = "Field Supervisor - Chat", showBackground = true, widthDp = 360, heightDp = 800)
+@Preview(
+    name = "Field Supervisor - Chat",
+    showBackground = true,
+    widthDp = 360,
+    heightDp = 800
+)
 @Composable
 fun ChatScreenFieldSupervisorPreview() {
     ChatScreen(
@@ -389,7 +475,9 @@ fun ChatScreenFieldSupervisorPreview() {
     )
 }
 
-internal fun demoConversations(role: String): List<ChatConversation> = when (role) {
+internal fun demoConversations(
+    role: String
+): List<ChatConversation> = when (role) {
     "student" -> listOf(
         ChatConversation(
             conversationId = "student-field-supervisor",
@@ -411,6 +499,7 @@ internal fun demoConversations(role: String): List<ChatConversation> = when (rol
             isAcademic = true
         )
     )
+
     "academic" -> listOf(
         ChatConversation(
             conversationId = "academic-field-supervisor",
@@ -438,6 +527,7 @@ internal fun demoConversations(role: String): List<ChatConversation> = when (rol
             time = "Sat"
         )
     )
+
     "field" -> listOf(
         ChatConversation(
             conversationId = "field-student-sara",
@@ -466,5 +556,6 @@ internal fun demoConversations(role: String): List<ChatConversation> = when (rol
             time = "Sun"
         )
     )
+
     else -> emptyList()
 }

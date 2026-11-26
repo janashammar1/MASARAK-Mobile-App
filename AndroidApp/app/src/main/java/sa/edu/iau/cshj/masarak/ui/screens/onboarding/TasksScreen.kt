@@ -257,13 +257,8 @@ fun TasksScreen(
                                     reviews[latestSubmission.submissionId]
                                         .orEmpty()
 
-                                val latestReview =
-                                    taskReviews.maxByOrNull {
-                                        it.reviewedAt
-                                    }
-
                                 val taskItem =
-                                    latestSubmission.toTaskItem(latestReview)
+                                    latestSubmission.toTaskItem(taskReviews)
 
                                 TaskCard(
                                     task = taskItem,
@@ -466,97 +461,91 @@ private fun StatusChip(status: String) {
     }
 }
 
+
+private fun reviewKey(value: String): String =
+    value.trim().uppercase(Locale.ROOT).replace(Regex("\\s+"), "_")
+
 private fun TaskSubmissionEntity.toTaskItem(
-    review: TaskReviewEntity?
+    reviews: List<TaskReviewEntity>
 ): TaskItem {
-
-    val status = when (
-        review?.decision?.uppercase()
-    ) {
-        "RETURNED",
-        "RETURNED_FOR_UPDATES" -> "Returned for Updates"
-
-        "APPROVED",
-        "RELEVANT" -> "Relevant"
-
-        "PARTIALLY_RELEVANT" -> "Partially Relevant"
-
-        "NOT_RELEVANT",
-        "REJECTED" -> "Not Relevant"
-
-        "INCOMPLETE" -> "Incomplete"
-
-        else -> "Waiting for Field Review"
-    }
-
-    val hoursValue = durationMinutes / 60.0
-    val hoursText = if (durationMinutes % 60 == 0) {
-        "${durationMinutes / 60}h"
-    } else {
-        "${String.format(Locale.getDefault(), "%.1f", hoursValue)}h"
-    }
-
+    val details = toTaskDetails(reviews)
     return TaskItem(
-        title = title,
-        hours = hoursText,
-        type = taskType,
-        date = SimpleDateFormat(
-            "dd MMM",
-            Locale.getDefault()
-        ).format(Date(taskDate)),
-        status = status
+        title = details.title,
+        hours = details.hours,
+        type = details.type,
+        date = details.date,
+        status = details.reviewStatusLabel
     )
 }
 
 private fun TaskSubmissionEntity.toTaskDetails(
     reviews: List<TaskReviewEntity>
 ): TaskDetails {
+    val order = compareBy<TaskReviewEntity> { it.reviewedAt }
+        .thenBy { it.reviewId }
+    val field = reviews.filter {
+        reviewKey(it.reviewStage) in setOf("FIELD", "FIELD_SUPERVISOR")
+    }.maxWithOrNull(order)
+    val academic = reviews.filter {
+        reviewKey(it.reviewStage) in setOf("ACADEMIC", "ACADEMIC_SUPERVISOR")
+    }.maxWithOrNull(order)
+    val fieldDecision = field?.let { reviewKey(it.decision) }
+    val fieldApproved = fieldDecision == "APPROVED"
+    val academicDecision = academic?.let { reviewKey(it.decision) }
 
-    val latestReview = reviews.maxByOrNull {
-        it.reviewedAt
-    }
-
-    val status = when (
-        latestReview?.decision?.uppercase()
-    ) {
-        "RETURNED",
-        "RETURNED_FOR_UPDATES" -> TaskStatus.RETURNED
-
-        "APPROVED",
-        "RELEVANT" -> TaskStatus.RELEVANT
-
-        "PARTIALLY_RELEVANT" -> TaskStatus.PARTIALLY_RELEVANT
-
-        "NOT_RELEVANT",
-        "REJECTED" -> TaskStatus.NOT_RELEVANT
-
-        "INCOMPLETE" -> TaskStatus.INCOMPLETE
-
+    val status = when {
+        fieldDecision in setOf("RETURNED", "RETURNED_FOR_UPDATES") ->
+            TaskStatus.RETURNED
+        fieldDecision == "INCOMPLETE" -> TaskStatus.INCOMPLETE
+        !fieldApproved -> TaskStatus.WAITING_REVIEW
+        academicDecision in setOf("RELEVANT", "APPROVED") ->
+            TaskStatus.RELEVANT
+        academicDecision == "PARTIALLY_RELEVANT" ->
+            TaskStatus.PARTIALLY_RELEVANT
+        academicDecision in setOf("NOT_RELEVANT", "REJECTED") ->
+            TaskStatus.NOT_RELEVANT
         else -> TaskStatus.WAITING_REVIEW
     }
 
-    val hoursValue = durationMinutes / 60.0
-    val hoursText = if (durationMinutes % 60 == 0) {
-        "${durationMinutes / 60}h"
-    } else {
-        "${String.format(Locale.getDefault(), "%.1f", hoursValue)}h"
+    val statusLabel = when (status) {
+        TaskStatus.RETURNED -> "Returned for Updates"
+        TaskStatus.INCOMPLETE -> "Incomplete"
+        TaskStatus.RELEVANT -> "Relevant"
+        TaskStatus.PARTIALLY_RELEVANT -> "Partially Relevant"
+        TaskStatus.NOT_RELEVANT -> "Not Relevant"
+        TaskStatus.WAITING_REVIEW ->
+            if (fieldApproved) "Waiting for Academic Review"
+            else "Waiting for Field Review"
     }
-
+    val selectedReview = when (status) {
+        TaskStatus.RETURNED, TaskStatus.INCOMPLETE -> field
+        TaskStatus.RELEVANT, TaskStatus.PARTIALLY_RELEVANT,
+        TaskStatus.NOT_RELEVANT -> academic
+        else -> null
+    }
+    val hoursText = if (durationMinutes % 60 == 0) {
+        (durationMinutes / 60).toString() + "h"
+    } else {
+        String.format(Locale.getDefault(), "%.1f", durationMinutes / 60.0) + "h"
+    }
     return TaskDetails(
         title = title,
-        date = SimpleDateFormat(
-            "dd MMM",
-            Locale.getDefault()
-        ).format(Date(taskDate)),
+        date = SimpleDateFormat("dd MMM", Locale.getDefault())
+            .format(Date(taskDate)),
         hours = hoursText,
         type = taskType,
         description = description,
         status = status,
-        reviewer = latestReview?.let {
-            "Reviewer #${it.reviewerId}"
-        } ?: "",
-        reviewComment = latestReview?.comment.orEmpty(),
-        challenges = challenges.orEmpty()
+        reviewer = selectedReview?.let { "Reviewer #" + it.reviewerId }.orEmpty(),
+        reviewComment = selectedReview?.comment.orEmpty(),
+        supervisorComment = if (fieldApproved) field?.comment.orEmpty() else "",
+        supervisorTime = if (fieldApproved && field != null) {
+            SimpleDateFormat("dd MMM HH:mm", Locale.getDefault())
+                .format(Date(field.reviewedAt))
+        } else "",
+        challenges = challenges.orEmpty(),
+        submissionId = submissionId,
+        reviewStatusLabel = statusLabel
     )
 }
 
@@ -571,3 +560,6 @@ private fun TasksScreenPreview() {
 private fun TasksScrolledPreview() {
     MASARAKTheme { TasksScreen(previewFrame = true, previewScrolled = true) }
 }
+
+
+

@@ -16,7 +16,6 @@ import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -33,7 +32,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import sa.edu.iau.cshj.masarak.R
-import sa.edu.iau.cshj.masarak.ui.components.ResetPasswordSheet
 import sa.edu.iau.cshj.masarak.ui.theme.MASARAKTheme
 
 private val LoginCream = Color(0xFFF7F6F1)
@@ -45,19 +43,20 @@ private val LoginBorder = Color(0xFF93939D)
 @Composable
 fun LoginScreen(
     onSignIn: (String, String) -> Unit = { _, _ -> },
-    errorMessage: String? = null
-)
- {
+    errorMessage: String? = null,
+    isLoading: Boolean = false,
+    onInputChanged: () -> Unit = {}
+) {
     var email by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
-    var showResetSheet by rememberSaveable { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .drawBehind {
                 drawRect(LoginCream)
+
                 drawRect(
                     brush = Brush.radialGradient(
                         colors = listOf(
@@ -68,6 +67,7 @@ fun LoginScreen(
                         radius = size.width * 0.85f
                     )
                 )
+
                 drawRect(
                     brush = Brush.radialGradient(
                         colors = listOf(
@@ -82,7 +82,12 @@ fun LoginScreen(
             .safeDrawingPadding()
             .imePadding()
             .verticalScroll(rememberScrollState())
-            .padding(start = 20.dp, top = 44.dp, end = 20.dp, bottom = 24.dp)
+            .padding(
+                start = 20.dp,
+                top = 44.dp,
+                end = 20.dp,
+                bottom = 24.dp
+            )
     ) {
         val logoShape = RoundedCornerShape(16.dp)
 
@@ -119,9 +124,13 @@ fun LoginScreen(
         LoginField(
             title = "Email",
             value = email,
-            onValueChange = { email = it },
+            onValueChange = {
+                email = it
+                onInputChanged()
+            },
             hint = "name@uni.edu.sa",
             icon = Icons.Outlined.Email,
+            enabled = !isLoading,
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Email,
                 imeAction = ImeAction.Next
@@ -133,9 +142,13 @@ fun LoginScreen(
         LoginField(
             title = "Password",
             value = password,
-            onValueChange = { password = it },
+            onValueChange = {
+                password = it
+                onInputChanged()
+            },
             hint = "Your password",
             icon = Icons.Outlined.Lock,
+            enabled = !isLoading,
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Password,
                 imeAction = ImeAction.Done
@@ -146,7 +159,12 @@ fun LoginScreen(
                 PasswordVisualTransformation()
             },
             trailingIcon = {
-                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                IconButton(
+                    onClick = {
+                        passwordVisible = !passwordVisible
+                    },
+                    enabled = !isLoading
+                ) {
                     Icon(
                         imageVector = if (passwordVisible) {
                             Icons.Outlined.VisibilityOff
@@ -164,31 +182,26 @@ fun LoginScreen(
                 }
             }
         )
+
         if (!errorMessage.isNullOrBlank()) {
+            Spacer(Modifier.height(8.dp))
+
             Text(
                 text = errorMessage,
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall
             )
         }
-        Spacer(Modifier.height(6.dp))
 
-        TextButton(
-            onClick = { showResetSheet = true },
-            modifier = Modifier.align(Alignment.End)
-        ) {
-            Text(
-                text = "Forgot password?",
-                color = LoginTeal,
-                fontWeight = FontWeight.Bold
-            )
-        }
-
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(20.dp))
 
         Button(
-            onClick = { onSignIn(email.trim(), password) },
-            enabled = email.isNotBlank() && password.isNotBlank(),
+            onClick = {
+                onSignIn(email.trim(), password)
+            },
+            enabled = !isLoading &&
+                    email.isNotBlank() &&
+                    password.isNotBlank(),
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 46.dp),
@@ -200,15 +213,28 @@ fun LoginScreen(
                 disabledContentColor = LoginMuted
             )
         ) {
-            Text("Log in", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-        }
-    }
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    color = LoginTeal,
+                    strokeWidth = 2.dp
+                )
 
-    if (showResetSheet) {
-        ResetPasswordSheet(
-            initialEmail = email.trim(),
-            onDismiss = { showResetSheet = false }
-        )
+                Spacer(Modifier.width(10.dp))
+
+                Text(
+                    text = "Logging in...",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            } else {
+                Text(
+                    text = "Log in",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
     }
 }
 
@@ -220,7 +246,9 @@ private fun LoginField(
     hint: String,
     icon: ImageVector,
     keyboardOptions: KeyboardOptions,
-    visualTransformation: VisualTransformation = VisualTransformation.None,
+    enabled: Boolean = true,
+    visualTransformation: VisualTransformation =
+        VisualTransformation.None,
     trailingIcon: (@Composable () -> Unit)? = null
 ) {
     Text(
@@ -235,8 +263,15 @@ private fun LoginField(
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
+        enabled = enabled,
         modifier = Modifier.fillMaxWidth(),
-        placeholder = { Text(hint, color = LoginMuted, fontSize = 14.sp) },
+        placeholder = {
+            Text(
+                text = hint,
+                color = LoginMuted,
+                fontSize = 14.sp
+            )
+        },
         leadingIcon = {
             Icon(
                 imageVector = icon,
@@ -253,10 +288,13 @@ private fun LoginField(
         colors = OutlinedTextFieldDefaults.colors(
             focusedContainerColor = Color.White,
             unfocusedContainerColor = Color.White,
+            disabledContainerColor = Color.White,
             focusedTextColor = LoginInk,
             unfocusedTextColor = LoginInk,
+            disabledTextColor = LoginMuted,
             focusedBorderColor = LoginTeal,
             unfocusedBorderColor = LoginBorder,
+            disabledBorderColor = LoginBorder,
             cursorColor = LoginTeal
         )
     )

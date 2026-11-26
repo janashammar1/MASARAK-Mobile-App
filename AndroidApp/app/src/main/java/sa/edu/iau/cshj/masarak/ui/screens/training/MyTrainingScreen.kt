@@ -88,9 +88,8 @@ internal fun TrainingPage(
         )
         Column(
             Modifier.fillMaxWidth()
-                .then(if (previewFrame) Modifier.clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp)) else Modifier)
                 .background(TrainingNavy)
-                .then(if (previewFrame) Modifier else Modifier.navigationBarsPadding())
+                .navigationBarsPadding()
         ) {
             AppBottomBar(
                 selectedItem = selected,
@@ -586,3 +585,4 @@ private fun MyTrainingPreview() = MaterialTheme { MyTrainingLayout(previewState,
 @Preview(name = "My Training · scrolled", widthDp = 390, heightDp = 844)
 @Composable
 private fun MyTrainingScrolledPreview() = MaterialTheme { MyTrainingLayout(previewState, previewFrame = true, showTrainingRecord = false) }
+
