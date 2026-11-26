@@ -1,4 +1,3 @@
-
 package sa.edu.iau.cshj.masarak.ui.screens.people
 
 import androidx.compose.foundation.clickable
@@ -475,15 +474,17 @@ internal fun PeoplePage(
         if (preview) {
             PeopleBottomBar(academic, true)
         } else {
-            AppBottomBar(
-                selectedItem = BottomBarItem.MyTraining,
-                thirdTabLabel = if (academic) {
-                    "Students"
-                } else {
-                    "Trainees"
-                },
-                onItemSelected = onBottomBarItemSelected
-            )
+            Box(Modifier.fillMaxWidth().background(PeopleNavy).navigationBarsPadding()) {
+                AppBottomBar(
+                    selectedItem = BottomBarItem.MyTraining,
+                    thirdTabLabel = if (academic) {
+                        "Students"
+                    } else {
+                        "Trainees"
+                    },
+                    onItemSelected = onBottomBarItemSelected
+                )
+            }
         }
     }
 }
@@ -564,125 +565,21 @@ internal fun PeopleStatusBar() {
 }
 
 @Composable
-private fun PeopleBottomBar(
-    academic: Boolean,
-    preview: Boolean
-) {
-    val icons = listOf(
-        Icons.Outlined.Home,
-        Icons.Outlined.ChatBubbleOutline,
-        if (academic) {
-            Icons.Outlined.School
-        } else {
-            Icons.Outlined.Groups
-        },
-        Icons.Outlined.PersonOutline
-    )
-
-    val labels = listOf(
-        "Home",
-        "Chat",
-        if (academic) "Students" else "Trainees",
-        "Profile"
-    )
-
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .background(
-                PeopleNavy,
-                RoundedCornerShape(
-                    topStart = 16.dp,
-                    topEnd = 16.dp
-                )
+private fun PeopleBottomBar(academic: Boolean, preview: Boolean) {
+    Column(Modifier.fillMaxWidth().background(PeopleNavy)) {
+        Box(Modifier.fillMaxWidth().background(PeopleNavy).navigationBarsPadding()) {
+            AppBottomBar(
+                selectedItem = BottomBarItem.MyTraining,
+                thirdTabLabel = if (academic) "Students" else "Trainees",
+                chatUnreadCount = 0,
+                onItemSelected = {}
             )
-            .then(
-                if (preview) Modifier
-                else Modifier.navigationBarsPadding()
-            )
-    ) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            labels.forEachIndexed { index, label ->
-                val selected = index == 2
-
-                val tint = if (selected) {
-                    Color.White
-                } else {
-                    Color(0xFFC6C6D8)
-                }
-
-                Column(
-                    Modifier.weight(1f),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Box(
-                        Modifier
-                            .size(46.dp, 24.dp)
-                            .background(
-                                if (selected) {
-                                    Color(0xFF75CBD1)
-                                } else {
-                                    Color.Transparent
-                                },
-                                CircleShape
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            icons[index],
-                            null,
-                            Modifier.size(16.dp),
-                            tint = if (selected) {
-                                PeopleNavy
-                            } else {
-                                tint
-                            }
-                        )
-
-                        if (!academic && index == 1) {
-                            Box(
-                                Modifier
-                                    .align(Alignment.TopEnd)
-                                    .offset(
-                                        x = (-4).dp,
-                                        y = (-2).dp
-                                    )
-                                    .size(15.dp)
-                                    .background(
-                                        Color(0xFFBE2026),
-                                        CircleShape
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                PeopleText(
-                                    "1",
-                                    9,
-                                    Color.White,
-                                    bold = true
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(Modifier.height(3.dp))
-
-                    PeopleText(
-                        label,
-                        10,
-                        tint,
-                        bold = selected
-                    )
-                }
-            }
         }
-
         if (preview) {
-            PeopleGestureBar(dark = true)
+            Box(Modifier.fillMaxWidth().height(17.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.width(100.dp).height(4.dp)
+                    .background(Color.White.copy(alpha = .45f), CircleShape))
+            }
         }
     }
 }
@@ -900,3 +797,4 @@ private fun TraineesPreview() =
             preview = true
         )
     }
+

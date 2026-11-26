@@ -1,4 +1,3 @@
-
 package sa.edu.iau.cshj.masarak
 
 import android.net.Uri
@@ -13,6 +12,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
@@ -31,80 +32,163 @@ import kotlinx.coroutines.delay
 import sa.edu.iau.cshj.masarak.ui.components.AppBottomBar
 import sa.edu.iau.cshj.masarak.ui.components.BottomBarItem
 import sa.edu.iau.cshj.masarak.ui.components.LinkPersonSheet
+import sa.edu.iau.cshj.masarak.ui.components.LocalChatUnreadCount
 import sa.edu.iau.cshj.masarak.ui.screens.auth.LoginScreen
-import sa.edu.iau.cshj.masarak.ui.screens.chat.*
+import sa.edu.iau.cshj.masarak.ui.screens.chat.RoomChatRoute
+import sa.edu.iau.cshj.masarak.ui.screens.chat.RoomChatViewModel
+import sa.edu.iau.cshj.masarak.ui.screens.chat.RoomConversationRoute
 import sa.edu.iau.cshj.masarak.ui.screens.home.StudentHomeScreen
 import sa.edu.iau.cshj.masarak.ui.screens.home.SupervisorHomeScreen
 import sa.edu.iau.cshj.masarak.ui.screens.notifications.NotificationsScreen
 import sa.edu.iau.cshj.masarak.ui.screens.onboarding.SplashScreen
-import sa.edu.iau.cshj.masarak.ui.screens.onboarding.WelcomeScreen
 import sa.edu.iau.cshj.masarak.ui.screens.onboarding.TaskDetailsScreen
 import sa.edu.iau.cshj.masarak.ui.screens.onboarding.TasksScreen
+import sa.edu.iau.cshj.masarak.ui.screens.onboarding.WelcomeScreen
 import sa.edu.iau.cshj.masarak.ui.screens.onboarding.sampleTask
 import sa.edu.iau.cshj.masarak.ui.screens.people.PeopleListScreen
 import sa.edu.iau.cshj.masarak.ui.screens.people.PersonDetailScreen
-import sa.edu.iau.cshj.masarak.ui.screens.profile.ProfileScreen
-import sa.edu.iau.cshj.masarak.ui.screens.profile.demoProfile
+import sa.edu.iau.cshj.masarak.ui.screens.profile.ProfileRoute
 import sa.edu.iau.cshj.masarak.ui.screens.tasks.AddEditTaskScreen
 import sa.edu.iau.cshj.masarak.ui.screens.tasks.ReviewRelevanceScreen
-import sa.edu.iau.cshj.masarak.ui.screens.tasks.ReviewTaskScreen
+import sa.edu.iau.cshj.masarak.ui.screens.tasks.RoomFieldReviewRoute
 import sa.edu.iau.cshj.masarak.ui.screens.training.AcademicWeeklyEvaluationScreen
 import sa.edu.iau.cshj.masarak.ui.screens.training.MyTrainingScreen
 import sa.edu.iau.cshj.masarak.ui.screens.training.WeeklyEvaluationScreen
 import sa.edu.iau.cshj.masarak.ui.viewmodel.AuthViewModel
 import sa.edu.iau.cshj.masarak.ui.viewmodel.MasarakViewModelFactory
+import sa.edu.iau.cshj.masarak.ui.viewmodel.StudentHomeViewModel
+import sa.edu.iau.cshj.masarak.ui.viewmodel.TaskViewModel
+import java.util.Locale
 
 @Composable
 fun AppNavGraph() {
-
     val nav = rememberNavController()
 
     val authViewModel: AuthViewModel = viewModel(
         factory = MasarakViewModelFactory()
     )
 
-    val currentUser = authViewModel.currentUser.collectAsState().value
-    val loginError = authViewModel.loginError.collectAsState().value
+    val currentUser =
+        authViewModel.currentUser.collectAsState().value
 
-    val selectedTask = remember { mutableStateOf(sampleTask) }
+    val loginError =
+        authViewModel.loginError.collectAsState().value
 
-    LaunchedEffect(currentUser) {
-        val user = currentUser ?: return@LaunchedEffect
+    val isLoggingIn =
+        authViewModel.isLoggingIn.collectAsState().value
 
-        val route = when (user.role.trim().lowercase()) {
-            "student" -> "student_home"
-            "field supervisor", "field" -> "supervisor/field"
-            "academic supervisor", "academic" -> "supervisor/academic"
-            else -> return@LaunchedEffect
+    val studentContext: StudentHomeViewModel = viewModel(
+        key = "navigation-student-context",
+        factory = StudentHomeViewModel.Factory
+    )
+
+    val studentState =
+        studentContext.state.collectAsState().value
+
+    val studentAccount = currentUser?.takeIf {
+        it.role.trim().equals(
+            "student",
+            ignoreCase = true
+        )
+    }
+
+    val activeRecordId = studentState.recordId.takeIf {
+        studentAccount != null &&
+                studentState.userId == studentAccount.userId &&
+                !studentState.isLoading &&
+                studentState.error == null
+    }
+
+    LaunchedEffect(studentAccount?.userId) {
+        studentContext.load(studentAccount)
+    }
+
+    val roomChat: RoomChatViewModel = viewModel(
+        key = "room-chat-" + (currentUser?.userId ?: 0L),
+        factory = RoomChatViewModel.Factory
+    )
+
+    DisposableEffect(roomChat) {
+        onDispose {
+            roomChat.bind(null)
         }
+    }
 
-        nav.navigate(route) {
-            popUpTo("login") {
-                inclusive = true
+    LaunchedEffect(currentUser?.userId) {
+        roomChat.bind(currentUser?.userId)
+    }
+
+    val chatInbox =
+        roomChat.inbox.collectAsState().value
+
+    val unreadChatCount =
+        chatInbox.sumOf { it.unreadCount }
+
+    val selectedTask = remember {
+        mutableStateOf(sampleTask)
+    }
+
+    fun normalizedRole(role: String): String? {
+        return when (role.trim().lowercase(Locale.ROOT)) {
+            "student" -> "student"
+            "field", "field supervisor" -> "field"
+            "academic", "academic supervisor" -> "academic"
+            else -> null
+        }
+    }
+
+    fun home(role: String): String {
+        return if (role == "student") {
+            "student_home"
+        } else {
+            "supervisor/$role"
+        }
+    }
+
+    fun tabLabel(role: String): String {
+        return when (role) {
+            "academic" -> "Students"
+            "field" -> "Trainees"
+            else -> "My Training"
+        }
+    }
+
+    fun returnToLogin() {
+        nav.navigate("login") {
+            popUpTo(nav.graph.id) {
+                inclusive = false
+                saveState = false
             }
+
             launchSingleTop = true
+            restoreState = false
         }
     }
 
-    fun home(role: String) =
-        if (role == "student") "student_home"
-        else "supervisor/$role"
-
-    fun tabLabel(role: String) = when (role) {
-        "academic" -> "Students"
-        "field" -> "Trainees"
-        else -> "My Training"
+    fun logout() {
+        authViewModel.logout()
+        selectedTask.value = sampleTask
+        returnToLogin()
     }
 
-    fun selectTab(role: String, item: BottomBarItem) {
+    fun selectTab(
+        role: String,
+        item: BottomBarItem
+    ) {
         val route = when (item) {
             BottomBarItem.Home -> home(role)
+
             BottomBarItem.Chat -> "chat/$role"
+
             BottomBarItem.Profile -> "profile/$role"
-            BottomBarItem.MyTraining ->
-                if (role != "student") "people/$role"
-                else "my_training"
-            else -> return
+
+            BottomBarItem.MyTraining -> {
+                if (role == "student") {
+                    "my_training"
+                } else {
+                    "people/$role"
+                }
+            }
         }
 
         nav.navigate(route) {
@@ -113,472 +197,547 @@ fun AppNavGraph() {
         }
     }
 
-    NavHost(
-        navController = nav,
-        startDestination = "splash"
+    LaunchedEffect(
+        currentUser?.userId,
+        currentUser?.role
     ) {
+        val user = currentUser ?: return@LaunchedEffect
 
-        composable("splash") {
-            SplashScreen()
+        val role = normalizedRole(user.role)
+            ?: return@LaunchedEffect
 
-            LaunchedEffect(Unit) {
-                delay(1500)
-                nav.navigate("welcome") {
-                    popUpTo("splash") {
-                        inclusive = true
+        nav.navigate(home(role)) {
+            popUpTo(nav.graph.id) {
+                inclusive = false
+                saveState = false
+            }
+
+            launchSingleTop = true
+            restoreState = false
+        }
+    }
+
+    CompositionLocalProvider(
+        LocalChatUnreadCount provides unreadChatCount
+    ) {
+        NavHost(
+            navController = nav,
+            startDestination = "splash"
+        ) {
+            composable("splash") {
+                SplashScreen()
+
+                LaunchedEffect(Unit) {
+                    delay(1500)
+
+                    nav.navigate("welcome") {
+                        popUpTo("splash") {
+                            inclusive = true
+                        }
                     }
                 }
             }
-        }
 
-        composable("welcome") {
-            WelcomeScreen(
-                onGetStarted = {
-                    nav.navigate("login")
-                }
-            )
-        }
+            composable("welcome") {
+                WelcomeScreen(
+                    onGetStarted = {
+                        nav.navigate("login")
+                    }
+                )
+            }
 
-        composable("login") {
-            LoginScreen(
-                errorMessage = loginError,
-                onSignIn = { email, password ->
-                    authViewModel.login(email, password)
-                }
-            )
-        }
+            composable("login") {
+                LoginScreen(
+                    errorMessage = loginError,
+                    isLoading = isLoggingIn,
+                    onInputChanged =
+                        authViewModel::clearLoginError,
+                    onSignIn = { email, password ->
+                        authViewModel.login(
+                            email,
+                            password
+                        )
+                    }
+                )
+            }
 
-        dialog("demo_roles") {
-            Surface(shape = MaterialTheme.shapes.large) {
-                Column(Modifier.padding(24.dp)) {
+            dialog("demo_roles") {
+                Surface(
+                    shape = MaterialTheme.shapes.large
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp)
+                    ) {
+                        Text(
+                            text = "Choose a demo role",
+                            style =
+                                MaterialTheme.typography.titleLarge
+                        )
 
-                    Text(
-                        "Choose a demo role",
-                        style = MaterialTheme.typography.titleLarge
-                    )
-
-                    listOf(
-                        "Student" to "student_home",
-                        "Field Supervisor" to "supervisor/field",
-                        "Academic Supervisor" to "supervisor/academic"
-                    ).forEach { (label, route) ->
+                        listOf(
+                            "Student" to "student_home",
+                            "Field Supervisor" to
+                                    "supervisor/field",
+                            "Academic Supervisor" to
+                                    "supervisor/academic"
+                        ).forEach { (label, route) ->
+                            TextButton(
+                                onClick = {
+                                    nav.popBackStack()
+                                    nav.navigate(route)
+                                }
+                            ) {
+                                Text(label)
+                            }
+                        }
 
                         TextButton(
                             onClick = {
                                 nav.popBackStack()
-                                nav.navigate(route)
                             }
                         ) {
-                            Text(label)
+                            Text("Cancel")
                         }
                     }
+                }
+            }
 
+            composable("supervisor/{role}") { entry ->
+                val role = entry.arguments
+                    ?.getString("role")
+                    ?: "field"
+
+                SupervisorHomeScreen(
+                    isAcademic = role == "academic",
+                    currentUser = currentUser,
+                    onPeopleClick = {
+                        nav.navigate("people/$role")
+                    },
+                    onNotifications = {
+                        nav.navigate("notifications/$role")
+                    },
+                    onTabSelected = {
+                        selectTab(role, it)
+                    },
+                    onPersonClick = { name, recordId ->
+                        nav.navigate(
+                            "person/$role/${Uri.encode(name)}/$recordId"
+                        )
+                    }
+                )
+            }
+
+            composable("people/{role}") { entry ->
+                val role = entry.arguments
+                    ?.getString("role")
+                    ?: "field"
+
+                PeopleListScreen(
+                    isAcademic = role == "academic",
+                    supervisorId = currentUser?.userId,
+                    onLinkClick = {
+                        nav.navigate("link_person/$role")
+                    },
+                    onPersonClick = { name, recordId ->
+                        nav.navigate(
+                            "person/$role/${Uri.encode(name)}/$recordId"
+                        )
+                    },
+                    onBottomBarItemSelected = {
+                        selectTab(role, it)
+                    }
+                )
+            }
+
+            composable(
+                "person/{role}/{name}/{recordId}"
+            ) { entry ->
+                val academic = entry.arguments
+                    ?.getString("role") == "academic"
+
+                val recordId = entry.arguments
+                    ?.getString("recordId")
+                    ?.toLongOrNull()
+                    ?: 0L
+
+                val personName = entry.arguments
+                    ?.getString("name")
+
+                PersonDetailScreen(
+                    isAcademic = academic,
+                    personName = personName,
+                    recordId = recordId,
+                    currentUserId = currentUser?.userId,
+                    onBackClick = {
+                        nav.popBackStack()
+                    },
+                    onReviewClick = { submissionId ->
+                        nav.navigate(
+                            "review_relevance/$submissionId"
+                        )
+                    },
+                    onFieldReview = if (!academic) {
+                        { submissionId ->
+                            nav.navigate(
+                                "review_task/$submissionId"
+                            )
+                        }
+                    } else {
+                        null
+                    },
+                    onEvaluation = if (
+                        academic && recordId != 0L
+                    ) {
+                        {
+                            nav.navigate(
+                                "academic_weekly_evaluation/$recordId"
+                            )
+                        }
+                    } else {
+                        null
+                    }
+                )
+            }
+
+            composable("link_person/{role}") { entry ->
+                LinkPersonSheet(
+                    isAcademic = entry.arguments
+                        ?.getString("role") == "academic",
+                    currentUserId = currentUser?.userId,
+                    onDismiss = {
+                        nav.popBackStack()
+                    }
+                )
+            }
+
+            composable(
+                "review_task/{submissionId}"
+            ) { entry ->
+                val submissionId = entry.arguments
+                    ?.getString("submissionId")
+                    ?.toLongOrNull()
+
+                val userId = currentUser?.userId
+
+                if (
+                    submissionId != null &&
+                    userId != null
+                ) {
+                    RoomFieldReviewRoute(
+                        submissionId = submissionId,
+                        reviewerId = userId,
+                        onBack = {
+                            nav.popBackStack()
+                        },
+                        onTab = {
+                            selectTab("field", it)
+                        }
+                    )
+                } else {
                     TextButton(
                         onClick = {
                             nav.popBackStack()
                         }
                     ) {
-                        Text("Cancel")
+                        Text("Back")
                     }
                 }
             }
-        }
 
-        composable("supervisor/{role}") { entry ->
+            composable(
+                "review_relevance/{submissionId}"
+            ) { entry ->
+                val submissionId = entry.arguments
+                    ?.getString("submissionId")
+                    ?.toLongOrNull()
 
-            val role =
-                entry.arguments?.getString("role") ?: "field"
-
-            SupervisorHomeScreen(
-                isAcademic = role == "academic",
-                onPeopleClick = {
-                    nav.navigate("people/$role")
-                },
-                onNotifications = {
-                    nav.navigate("notifications/$role")
-                },
-                onTabSelected = {
-                    selectTab(role, it)
-                }
-            )
-        }
-
-        composable("people/{role}") { entry ->
-
-            val role =
-                entry.arguments?.getString("role") ?: "field"
-
-            PeopleListScreen(
-                isAcademic = role == "academic",
-                supervisorId = currentUser?.userId,
-
-                onLinkClick = {
-                    nav.navigate("link_person/$role")
-                },
-
-                onPersonClick = { name, recordId ->
-                    nav.navigate(
-                        "person/$role/${Uri.encode(name)}/$recordId"
+                if (submissionId != null) {
+                    ReviewRelevanceScreen(
+                        submissionId = submissionId,
+                        reviewerId = currentUser?.userId,
+                        onBackClick = {
+                            nav.popBackStack()
+                        }
                     )
-                },
-
-                onBottomBarItemSelected = {
-                    selectTab(role, it)
-                }
-            )
-        }
-
-        // Person details and task review navigation
-        composable("person/{role}/{name}/{recordId}") { entry ->
-
-            val academic =
-                entry.arguments?.getString("role") == "academic"
-
-            val recordId = entry.arguments
-                ?.getString("recordId")
-                ?.toLongOrNull() ?: 0L
-
-            val personName =
-                entry.arguments?.getString("name")
-
-            PersonDetailScreen(
-                isAcademic = academic,
-                personName = personName,
-                recordId = recordId,
-                currentUserId = currentUser?.userId,
-
-                onBackClick = {
-                    nav.popBackStack()
-                },
-
-                onReviewClick = { submissionId ->
-                    nav.navigate("review_relevance/$submissionId")
-                },
-
-                onFieldReview = if (!academic) {
-                    {
-                        nav.navigate("review_task")
+                } else {
+                    TextButton(
+                        onClick = {
+                            nav.popBackStack()
+                        }
+                    ) {
+                        Text("Back")
                     }
-                } else null,
-
-                onEvaluation = if (academic && recordId != 0L) {
-                    {
-                        nav.navigate("academic_weekly_evaluation/$recordId")
-                    }
-                } else null
-            )
-        }
-
-        composable("link_person/{role}") { entry ->
-
-            LinkPersonSheet(
-                isAcademic =
-                    entry.arguments?.getString("role") == "academic",
-                currentUserId = currentUser?.userId,
-
-                onDismiss = {
-                    nav.popBackStack()
                 }
-            )
-        }
+            }
 
-        composable("review_task") {
-
-            ReviewTaskScreen(
-                onBack = {
-                    nav.popBackStack()
-                },
-                onApprove = {
-                    nav.popBackStack()
-                },
-                onReturn = {
-                    nav.popBackStack()
-                },
-                onIncomplete = {
-                    nav.popBackStack()
-                },
-                chatUnreadCount = 1,
-                onBottomBarItemSelected = {
-                    selectTab("field", it)
-                }
-            )
-        }
-
-        // Review screen receives the actual submission ID
-        composable("review_relevance/{submissionId}") { entry ->
-
-            val submissionId = entry.arguments
-                ?.getString("submissionId")
-                ?.toLongOrNull()
-
-            if (submissionId != null) {
-                ReviewRelevanceScreen(
-                    submissionId = submissionId,
-                    reviewerId = currentUser?.userId,
-                    onBackClick = {
-                        nav.popBackStack()
+            composable("student_home") {
+                StudentHomeScreen(
+                    currentUser = currentUser,
+                    onWeeklyEvaluation = {
+                        nav.navigate("weekly_evaluation")
+                    },
+                    onTasksClick = {
+                        nav.navigate("tasks")
+                    },
+                    onNotifications = {
+                        nav.navigate(
+                            "notifications/student"
+                        )
+                    },
+                    onTabSelected = {
+                        selectTab("student", it)
+                    },
+                    onAddTask = {
+                        nav.navigate("task_form")
                     }
                 )
-            } else {
-                TextButton(
-                    onClick = {
-                        nav.popBackStack()
-                    }
-                ) {
-                    Text("Back")
-                }
-            }
-        }
-
-        composable("student_home") {
-
-            StudentHomeScreen(
-                onWeeklyEvaluation = {
-                    nav.navigate("weekly_evaluation")
-                },
-                onTasksClick = {
-                    nav.navigate("tasks")
-                },
-                onNotifications = {
-                    nav.navigate("notifications/student")
-                },
-                onTabSelected = {
-                    selectTab("student", it)
-                },
-                onAddTask = {
-                    nav.navigate("task_form")
-                }
-            )
-        }
-
-        composable("notifications/{role}") { entry ->
-
-            val role =
-                entry.arguments?.getString("role") ?: "student"
-
-            NotificationsScreen(
-                role,
-                onBack = {
-                    nav.popBackStack()
-                },
-                onTabSelected = {
-                    selectTab(role, it)
-                }
-            )
-        }
-
-        composable("chat/{role}") { entry ->
-
-            val role =
-                entry.arguments?.getString("role") ?: "student"
-
-            ChatScreen(
-                conversations = demoConversations(role),
-                thirdTabLabel = tabLabel(role),
-                usePlainBackground = role == "academic",
-
-                onConversationClick = { id ->
-                    nav.navigate(
-                        "conversation/$role/${Uri.encode(id)}"
-                    )
-                },
-
-                onBottomBarItemSelected = {
-                    selectTab(role, it)
-                }
-            )
-        }
-
-        composable("conversation/{role}/{id}") { entry ->
-
-            val role =
-                entry.arguments?.getString("role") ?: "student"
-
-            val contact = demoConversations(role).firstOrNull {
-                it.conversationId == entry.arguments?.getString("id")
             }
 
-            if (contact != null) {
+            composable(
+                "notifications/{role}"
+            ) { entry ->
+                val role = entry.arguments
+                    ?.getString("role")
+                    ?: "student"
 
-                ConversationScreen(
+                NotificationsScreen(
+                    role = role,
+                    currentUser = currentUser,
                     onBack = {
                         nav.popBackStack()
                     },
-
-                    contactName = contact.name,
-
-                    role = when (contact.role) {
-                        "Field Supervisor" -> "Field"
-                        "Academic Supervisor" -> "Academic"
-                        else -> "Student"
-                    },
-
-                    conversationInfo = null,
-
-                    messages = when (contact.conversationId) {
-                        "student-field-supervisor" -> fieldMessages()
-                        "academic-student-sara" -> studentMessages()
-                        "field-academic-supervisor" -> academicMessages()
-
-                        else -> listOf(
-                            ConversationMessage(
-                                text = contact.lastMessage.removePrefix("You: "),
-                                time = contact.time,
-                                isSent = contact.lastMessage.startsWith("You: ")
-                            )
-                        )
-                    },
-
-                    thirdTabLabel = tabLabel(role),
-
-                    onBottomBarItemSelected = {
+                    onTabSelected = {
                         selectTab(role, it)
                     }
                 )
+            }
 
-            } else {
+            composable("chat/{role}") {
+                val role = currentUser?.role
+                    ?.let(::normalizedRole)
+                    ?: "student"
 
-                TextButton(
-                    onClick = {
-                        nav.popBackStack()
+                RoomChatRoute(
+                    vm = roomChat,
+                    thirdTabLabel = tabLabel(role),
+                    academic = role == "academic",
+                    onConversation = { id ->
+                        nav.navigate(
+                            "conversation/$role/$id"
+                        )
+                    },
+                    onTab = {
+                        selectTab(role, it)
                     }
-                ) {
-                    Text("Back to Chat")
+                )
+            }
+
+            composable(
+                "conversation/{role}/{id}"
+            ) { entry ->
+                val role = currentUser?.role
+                    ?.let(::normalizedRole)
+                    ?: "student"
+
+                val id = entry.arguments
+                    ?.getString("id")
+                    ?.toLongOrNull()
+
+                val userId = currentUser?.userId
+
+                if (id != null && userId != null) {
+                    RoomConversationRoute(
+                        vm = roomChat,
+                        userId = userId,
+                        conversationId = id,
+                        thirdTabLabel = tabLabel(role),
+                        onBack = {
+                            nav.popBackStack()
+                        },
+                        onTab = {
+                            selectTab(role, it)
+                        }
+                    )
+                } else {
+                    TextButton(
+                        onClick = {
+                            nav.popBackStack()
+                        }
+                    ) {
+                        Text("Back to Chat")
+                    }
                 }
             }
-        }
 
-        composable("profile/{role}") { entry ->
+            composable("profile/{role}") {
+                val user = currentUser
 
-            val role =
-                entry.arguments?.getString("role") ?: "student"
+                val role = user?.let {
+                    normalizedRole(it.role)
+                }
 
-            ProfileScreen(
-                person = demoProfile(role),
-
-                onLogout = {
-                    nav.navigate("login") {
-                        popUpTo("login") {
-                            inclusive = true
-                        }
+                if (user == null || role == null) {
+                    LaunchedEffect(Unit) {
+                        logout()
                     }
-                },
+                } else {
+                    ProfileRoute(
+                        userId = user.userId,
+                        onLogout = {
+                            logout()
+                        },
+                        bottomBar = {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(
+                                        Color(0xFF0C0D45)
+                                    )
+                                    .navigationBarsPadding()
+                            ) {
+                                AppBottomBar(
+                                    selectedItem =
+                                        BottomBarItem.Profile,
+                                    thirdTabLabel =
+                                        tabLabel(role),
+                                    chatUnreadCount = 0,
+                                    onItemSelected = {
+                                        selectTab(role, it)
+                                    }
+                                )
+                            }
+                        }
+                    )
+                }
+            }
 
-                bottomBar = {
+            composable("my_training") {
+                MyTrainingScreen(
+                    studentEmail =
+                        studentAccount?.email.orEmpty(),
+                    onTabSelected = {
+                        selectTab("student", it)
+                    }
+                )
+            }
 
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFF0C0D45))
-                            .navigationBarsPadding()
+            composable("weekly_evaluation") {
+                WeeklyEvaluationScreen(
+                    studentEmail =
+                        studentAccount?.email.orEmpty(),
+                    onBack = {
+                        nav.popBackStack()
+                    },
+                    onTabSelected = {
+                        selectTab("student", it)
+                    }
+                )
+            }
+
+            composable(
+                "academic_weekly_evaluation/{recordId}"
+            ) { entry ->
+                AcademicWeeklyEvaluationScreen(
+                    academicEmail =
+                        currentUser?.email.orEmpty(),
+                    recordId = entry.arguments
+                        ?.getString("recordId")
+                        ?.toLongOrNull()
+                        ?: 0L,
+                    onBack = {
+                        nav.popBackStack()
+                    },
+                    onTabSelected = {
+                        selectTab("academic", it)
+                    }
+                )
+            }
+
+            composable("tasks") {
+                val taskViewModel: TaskViewModel = viewModel(
+                    key = "student-tasks-${studentAccount?.userId}-$activeRecordId",
+                    factory = MasarakViewModelFactory()
+                )
+
+                if (activeRecordId == null) {
+                    Column(
+                        modifier = Modifier.padding(24.dp)
                     ) {
-
-                        AppBottomBar(
-                            selectedItem = BottomBarItem.Profile,
-                            thirdTabLabel = tabLabel(role),
-
-                            chatUnreadCount = when (role) {
-                                "student" -> 2
-                                "field" -> 1
-                                else -> 0
-                            },
-
-                            onItemSelected = {
-                                selectTab(role, it)
+                        Text(
+                            text = if (studentState.isLoading) {
+                                "Loading training..."
+                            } else {
+                                studentState.error
+                                    ?: "No training record is available for your account."
                             }
                         )
+
+                        TextButton(
+                            onClick = {
+                                nav.popBackStack()
+                            }
+                        ) {
+                            Text("Back")
+                        }
                     }
+
+                    return@composable
                 }
-            )
-        }
 
-        composable("my_training") {
-            MyTrainingScreen(
-                onTabSelected = {
-                    selectTab("student", it)
-                }
-            )
-        }
-
-        composable("weekly_evaluation") {
-            WeeklyEvaluationScreen(
-                onBack = {
-                    nav.popBackStack()
-                },
-                onTabSelected = {
-                    selectTab("student", it)
-                }
-            )
-        }
-
-        composable("academic_weekly_evaluation/{recordId}") { entry ->
-            AcademicWeeklyEvaluationScreen(
-                recordId = entry.arguments
-                    ?.getString("recordId")
-                    ?.toLongOrNull() ?: 0L,
-                onBack = {
-                    nav.popBackStack()
-                },
-                onTabSelected = {
-                    selectTab("academic", it)
-                }
-            )
-        }
-
-        composable("tasks") {
-
-            TasksScreen(
-                onBackClick = {
-                    nav.popBackStack()
-                },
-
-                onTaskClick = {
-                    selectedTask.value = it
-                    nav.navigate("task_details")
-                },
-
-                onAddTask = {
-                    nav.navigate("task_form")
-                }
-            )
-        }
-
-        composable("task_details") {
-
-            TaskDetailsScreen(
-                task = selectedTask.value,
-
-                onBackClick = {
-                    nav.popBackStack()
-                },
-
-                onEditClick = {
-                    val submissionId = selectedTask.value.submissionId
-                    if (submissionId != null) {
-                        nav.navigate("task_form?submissionId=$submissionId")
+                TasksScreen(
+                    taskViewModel = taskViewModel,
+                    recordId = activeRecordId,
+                    onBackClick = {
+                        nav.popBackStack()
+                    },
+                    onTaskClick = {
+                        selectedTask.value = it
+                        nav.navigate("task_details")
+                    },
+                    onAddTask = {
+                        nav.navigate("task_form")
                     }
-                }
-            )
-        }
+                )
+            }
 
-        composable(
-            route = "task_form?submissionId={submissionId}",
-            arguments = listOf(
-                navArgument("submissionId") {
-                    type = NavType.LongType
-                    defaultValue = -1L
-                }
-            )
-        ) { backStackEntry ->
+            composable("task_details") {
+                TaskDetailsScreen(
+                    task = selectedTask.value,
+                    onBackClick = {
+                        nav.popBackStack()
+                    },
+                    onEditClick = {
+                        val submissionId =
+                            selectedTask.value.submissionId
 
-            AddEditTaskScreen(
-                onBackClick = {
-                    nav.popBackStack()
-                },
-                submissionId = backStackEntry.arguments
-                    ?.getLong("submissionId")
-                    ?.takeIf { it > 0L }
-            )
+                        if (submissionId != null) {
+                            nav.navigate(
+                                "task_form?submissionId=$submissionId"
+                            )
+                        }
+                    }
+                )
+            }
+
+            composable(
+                route = "task_form?submissionId={submissionId}",
+                arguments = listOf(
+                    navArgument("submissionId") {
+                        type = NavType.LongType
+                        defaultValue = -1L
+                    }
+                )
+            ) { backStackEntry ->
+                AddEditTaskScreen(
+                    recordId = activeRecordId,
+                    onBackClick = {
+                        nav.popBackStack()
+                    },
+                    submissionId = backStackEntry.arguments
+                        ?.getLong("submissionId")
+                        ?.takeIf { it > 0L }
+                )
+            }
         }
     }
 }

@@ -11,11 +11,14 @@ import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+
+val LocalChatUnreadCount = staticCompositionLocalOf<Int?> { null }
 
 enum class BottomBarItem(val label: String) {
     Home("Home"),
@@ -57,6 +60,7 @@ fun AppBottomBar(
     chatUnreadCount: Int,
     onItemSelected: (BottomBarItem) -> Unit = {}
 ) {
+    val unreadCount = LocalChatUnreadCount.current ?: chatUnreadCount
     val deepNavy = Color(0xFF0C0D45)
     val pearlAqua = Color(0xFF75CBD1)
 
@@ -75,12 +79,15 @@ fun AppBottomBar(
 
             val icon = when (item) {
                 BottomBarItem.Home -> Icons.Filled.Home
+
                 BottomBarItem.Chat -> Icons.Filled.ChatBubbleOutline
+
                 BottomBarItem.MyTraining -> when (thirdTabLabel) {
                     "Trainees" -> Icons.Outlined.Groups
                     "Students" -> Icons.Outlined.School
                     else -> Icons.Filled.WorkOutline
                 }
+
                 BottomBarItem.Profile -> Icons.Filled.PersonOutline
             }
 
@@ -88,21 +95,35 @@ fun AppBottomBar(
                 selected = selectedItem == item,
                 onClick = { onItemSelected(item) },
                 icon = {
-                    if (item == BottomBarItem.Chat && chatUnreadCount > 0) {
+                    if (item == BottomBarItem.Chat && unreadCount > 0) {
                         BadgedBox(
                             badge = {
                                 Badge(
                                     containerColor = Color(0xFFC62828),
                                     contentColor = Color.White
                                 ) {
-                                    Text(if (chatUnreadCount > 99) "99+" else chatUnreadCount.toString())
+                                    Text(
+                                        text = if (unreadCount > 99) {
+                                            "99+"
+                                        } else {
+                                            unreadCount.toString()
+                                        }
+                                    )
                                 }
                             }
                         ) {
-                            Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp))
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                modifier = Modifier.size(22.dp)
+                            )
                         }
                     } else {
-                        Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp))
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp)
+                        )
                     }
                 },
                 label = {

@@ -6,33 +6,77 @@ import sa.edu.iau.cshj.masarak.data.DatabaseProvider
 import sa.edu.iau.cshj.masarak.data.repository.*
 
 class MasarakViewModelFactory : ViewModelProvider.Factory {
+
     private val db = DatabaseProvider.db
 
-    private val userRepository = UserRepository(db.userDao())
-    private val trainingRepository = TrainingRepository(db.trainingDao())
-    private val taskRepository = TaskRepository(db.taskDao())
-    private val chatRepository = ChatRepository(db.chatDao())
-    private val notificationRepository = NotificationRepository(db.notificationDao())
+    private val userRepository =
+        UserRepository(db.userDao())
+
+    private val trainingRepository =
+        TrainingRepository(db.trainingDao())
+
+    private val taskRepository =
+        TaskRepository(db.taskDao())
+
+    private val chatRepository =
+        ChatRepository(db.chatDao())
+
+    private val notificationRepository =
+        NotificationRepository(db.notificationDao())
+
+    private val profileRepository =
+        ProfileRepository(
+            profileDao = db.profileDao(),
+            userRepository = userRepository,
+            trainingRepository = trainingRepository
+        )
 
     @Suppress("UNCHECKED_CAST")
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+    override fun <T : ViewModel> create(
+        modelClass: Class<T>
+    ): T {
         return when {
-            modelClass.isAssignableFrom(AuthViewModel::class.java) -> {
+            modelClass.isAssignableFrom(
+                AuthViewModel::class.java
+            ) -> {
                 AuthViewModel(userRepository) as T
             }
-            modelClass.isAssignableFrom(TrainingViewModel::class.java) -> {
+
+            modelClass.isAssignableFrom(
+                ProfileViewModel::class.java
+            ) -> {
+                ProfileViewModel(profileRepository) as T
+            }
+
+            modelClass.isAssignableFrom(
+                TrainingViewModel::class.java
+            ) -> {
                 TrainingViewModel(trainingRepository) as T
             }
-            modelClass.isAssignableFrom(TaskViewModel::class.java) -> {
+
+            modelClass.isAssignableFrom(
+                TaskViewModel::class.java
+            ) -> {
                 TaskViewModel(taskRepository) as T
             }
-            modelClass.isAssignableFrom(ChatViewModel::class.java) -> {
+
+            modelClass.isAssignableFrom(
+                ChatViewModel::class.java
+            ) -> {
                 ChatViewModel(chatRepository) as T
             }
-            modelClass.isAssignableFrom(NotificationViewModel::class.java) -> {
+
+            modelClass.isAssignableFrom(
+                NotificationViewModel::class.java
+            ) -> {
                 NotificationViewModel(notificationRepository) as T
             }
-            else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
+
+            else -> {
+                throw IllegalArgumentException(
+                    "Unknown ViewModel class: ${modelClass.name}"
+                )
+            }
         }
     }
 }
